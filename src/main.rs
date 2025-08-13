@@ -1,16 +1,21 @@
+use std::env;
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
 };
 
-const token: &str = "SESS948af67c60a38b4869db7f1955275d29=2a07cd84846d552d958aa8af012f32f3";
+//const token: &str = "SESS948af67c60a38b4869db7f1955275d29=2a07cd84846d552d958aa8af012f32f3";
 
 #[tokio::main]
 async fn main() {
-    let class_pick_vars = class_pick().await.unwrap();
+    let args: Vec<String> = env::args().collect();
+    let token: &str = &args[1];
+
+    let class_pick_vars = class_pick(token.to_string()).await.unwrap();
     final_req(
         class_pick_vars.form_build_id.as_str(),
         class_pick_vars.form_token.as_str(),
+        token.to_string(),
     )
     .await
     .unwrap();
@@ -23,7 +28,7 @@ struct initExportOutputs {
 }
 
 // this function gets the form token and form id
-async fn init_export() -> Result<initExportOutputs, Box<dyn std::error::Error>> {
+async fn init_export(token: String) -> Result<initExportOutputs, Box<dyn std::error::Error>> {
     let mut form_build_id = "N/A".to_string();
     let mut form_token = "N/A".to_string();
 
@@ -75,7 +80,7 @@ async fn init_export() -> Result<initExportOutputs, Box<dyn std::error::Error>> 
 
 // This inputs the form build and form id from the last function (init_export)
 // and selects the grading period
-async fn class_pick() -> Result<initExportOutputs, Box<dyn std::error::Error>> {
+async fn class_pick(token: String) -> Result<initExportOutputs, Box<dyn std::error::Error>> {
     let client = reqwest::Client::builder().build()?;
 
     let mut headers = reqwest::header::HeaderMap::new();
@@ -104,7 +109,7 @@ async fn class_pick() -> Result<initExportOutputs, Box<dyn std::error::Error>> {
     headers.insert("upgrade-insecure-requests", "1".parse()?);
 
     let mut params = std::collections::HashMap::new();
-    let paramsNeeded = init_export().await.unwrap();
+    let paramsNeeded = init_export(token).await.unwrap();
     params.insert("grading_period[1070869]", "1070869"); // ! CHANGE THIS FOR THE GRADING PERIOD 
     params.insert("grading_period[1070866]", "1070866"); // ! CHANGE THIS FOR THE GRADING PERIOD 
     params.insert("grading_period[1070867]", "1070867"); // ! CHANGE THIS FOR THE GRADING PERIOD 
@@ -162,6 +167,7 @@ async fn class_pick() -> Result<initExportOutputs, Box<dyn std::error::Error>> {
 async fn final_req(
     form_build_id: &str,
     form_token: &str,
+    token: String,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let client = reqwest::Client::builder().build()?;
 
