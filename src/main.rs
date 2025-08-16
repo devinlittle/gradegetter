@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::{collections::HashMap, env};
 use tokio::{
     fs::File,
@@ -7,28 +8,33 @@ use tokio::{
 //const token: &str = "SESS948af67c60a38b4869db7f1955275d29=2a07cd84846d552d958aa8af012f32f3";
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     let token: &str = &args[1];
 
-    let class_pick_vars = class_pick(token.to_string()).await.unwrap();
-    final_req(
+    let class_pick_vars = select_grade_period(token.to_string()).await.unwrap();
+    let html = fetch_final_grades_export(
         class_pick_vars.form_build_id.as_str(),
         class_pick_vars.form_token.as_str(),
         token.to_string(),
     )
     .await
     .unwrap();
-    //    println!("D-Done! 🧖‍♀️");
+
+    let parsed = parse_grades_html(html)?;
+    let grades = serde_json::to_string_pretty(&parsed)?;
+    println!("{}", grades);
+
+    Ok(())
 }
 
-struct initExportOutputs {
+struct Forms {
     form_build_id: String,
     form_token: String,
 }
 
 // this function gets the form token and form id
-async fn init_export(token: String) -> Result<initExportOutputs, Box<dyn std::error::Error>> {
+async fn fetch_export_form_tokens(token: String) -> Result<Forms, Box<dyn std::error::Error>> {
     let mut form_build_id = "N/A".to_string();
     let mut form_token = "N/A".to_string();
 
@@ -70,7 +76,7 @@ async fn init_export(token: String) -> Result<initExportOutputs, Box<dyn std::er
     .to_string();
     Ok(output)*/
 
-    let output = initExportOutputs {
+    let output = Forms {
         form_build_id: form_build_id,
         form_token: form_token,
     };
@@ -78,9 +84,9 @@ async fn init_export(token: String) -> Result<initExportOutputs, Box<dyn std::er
     Ok(output)
 }
 
-// This inputs the form build and form id from the last function (init_export)
+// This inputs the form build and form id from the last function (fetch_export_form_tokens)
 // and selects the grading period
-async fn class_pick(token: String) -> Result<initExportOutputs, Box<dyn std::error::Error>> {
+async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error::Error>> {
     let client = reqwest::Client::builder().build()?;
 
     let mut headers = reqwest::header::HeaderMap::new();
@@ -109,15 +115,19 @@ async fn class_pick(token: String) -> Result<initExportOutputs, Box<dyn std::err
     headers.insert("upgrade-insecure-requests", "1".parse()?);
 
     let mut params = std::collections::HashMap::new();
-    let paramsNeeded = init_export(token).await.unwrap();
-    params.insert("grading_period[1070869]", "1070869"); // ! CHANGE THIS FOR THE GRADING PERIOD 
+    params.insert("grading_period[1070869]", "1070869"); // ! CHANGE THIS FOR THE GRADING PERIOD //
+    // Q1
     params.insert("grading_period[1070866]", "1070866"); // ! CHANGE THIS FOR THE GRADING PERIOD 
-    params.insert("grading_period[1070867]", "1070867"); // ! CHANGE THIS FOR THE GRADING PERIOD 
+    // Q2
+    params.insert("grading_period[1070867]", "1070867"); // ! CHANGE THIS FOR THE GRADING PERIOD
+    // Q3
     params.insert("grading_period[1070868]", "1070868"); // ! CHANGE THIS FOR THE GRADING PERIOD 
+    // Q4
     params.insert("form_id", "s_grades_export_form");
     params.insert("op", "Next");
-    params.insert("form_build_id", &paramsNeeded.form_build_id.as_str());
-    params.insert("form_token", &paramsNeeded.form_token.as_str());
+    let params_needed = fetch_export_form_tokens(token).await.unwrap();
+    params.insert("form_build_id", &params_needed.form_build_id.as_str());
+    params.insert("form_token", &params_needed.form_token.as_str());
 
     let req = client
         .request(
@@ -155,7 +165,7 @@ async fn class_pick(token: String) -> Result<initExportOutputs, Box<dyn std::err
     .to_string();
     Ok(output)*/
 
-    let output = initExportOutputs {
+    let output = Forms {
         form_build_id: form_build_id,
         form_token: form_token,
     };
@@ -164,7 +174,7 @@ async fn class_pick(token: String) -> Result<initExportOutputs, Box<dyn std::err
 }
 
 // Selects classes and gets the final export, creates html file
-async fn final_req(
+async fn fetch_final_grades_export(
     form_build_id: &str,
     form_token: &str,
     token: String,
@@ -197,13 +207,13 @@ async fn final_req(
     headers.insert("upgrade-insecure-requests", "1".parse()?);
 
     let mut params = std::collections::HashMap::new();
-    params.insert("courses[7424299081][selected]", "1");
-    params.insert("courses[7461240135][selected]", "1");
-    params.insert("courses[7424298749][selected]", "1");
-    params.insert("courses[7424300380][selected]", "1");
-    params.insert("courses[7424298922][selected]", "1");
-    params.insert("courses[7424299614][selected]", "1");
-    params.insert("courses[7424299224][selected]", "1");
+    params.insert("courses[7424299081][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7461240135][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7424298749][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7424300380][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7424298922][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7424299614][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7424299224][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("comment_gps[-1]", "-1");
     params.insert("op", "Submit");
     params.insert("form_id", "s_grades_export_form");
@@ -228,10 +238,15 @@ async fn final_req(
 
     writer.write_all(body.as_bytes()).await?;
 
-    let document = scraper::Html::parse_document(body.as_str());
+    Ok(body)
+}
+
+fn parse_grades_html(
+    html: String,
+) -> Result<HashMap<String, Vec<Option<f32>>>, Box<dyn std::error::Error>> {
+    let document = scraper::Html::parse_document(html.as_str());
     let grade_selector =
         scraper::Selector::parse("td.grade, td.grade.final-grade, td.grade.no-grade").unwrap();
-    let title_selector = scraper::Selector::parse("tr.course-title th h2").unwrap();
     let row_selector = scraper::Selector::parse("tr").unwrap();
 
     let mut course_grades: HashMap<String, Vec<Option<f32>>> = HashMap::new();
@@ -277,25 +292,5 @@ async fn final_req(
         }
     }
 
-    println!("{}", serde_json::to_string_pretty(&course_grades).unwrap());
-
-    /*    let req_2 = client
-        .request(
-            reqwest::Method::GET,
-            "https://essexnorthshore.schoology.com/user/133626389/info",
-        )
-        .headers(headers.clone());
-
-    let response = req_2.send().await?;
-    let body = response.text().await?;
-
-    let regex_req_v2 =
-        regex::Regex::new(r#"<img[^>]*src="([^"]+)"[^>]*alt="[^"]*Profile picture for[^"]*""#)
-            .unwrap();
-
-    if let Some(caps) = regex_req_v2.captures(body.as_str()) {
-        println!("{:?}", caps[1].to_string());
-    } */
-
-    Ok("Hi".to_string())
+    Ok(course_grades)
 }
