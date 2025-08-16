@@ -1,4 +1,4 @@
-use std::env;
+use std::{collections::HashMap, env};
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
@@ -19,7 +19,7 @@ async fn main() {
     )
     .await
     .unwrap();
-    println!("D-Done! 🧖‍♀️");
+    //    println!("D-Done! 🧖‍♀️");
 }
 
 struct initExportOutputs {
@@ -50,18 +50,18 @@ async fn init_export(token: String) -> Result<initExportOutputs, Box<dyn std::er
     let reV1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
     if let Some(caps) = reV1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
-        println!("Good 1x");
+    //        println!("Good 1x");
     } else {
-        println!("No match found.");
+        //        println!("No match found.");
     }
 
     let reV2 =
         regex::Regex::new(r#"<input type="hidden" name="form_token" id="edit-s-grades-export-form-form-token-1" value="([^"]+)""#).unwrap();
     if let Some(caps) = reV2.captures(body.as_str()) {
         form_token = caps[1].to_string();
-        println!("Good 2x");
+    //        println!("Good 2x");
     } else {
-        println!("No match found.");
+        //        println!("No match found.");
     }
     /*    let output = format!(
         "form_build_id={0},form_token={1}",
@@ -136,17 +136,17 @@ async fn class_pick(token: String) -> Result<initExportOutputs, Box<dyn std::err
     let reV1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
     if let Some(caps) = reV1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
-        println!("Good 3x");
+    //        println!("Good 3x");
     } else {
-        println!("No match found. Class Pick V1");
+        //        println!("No match found. Class Pick V1");
     }
 
     let reV2 = regex::Regex::new(r#"form-token" value="([^"]+)""#).unwrap();
     if let Some(caps) = reV2.captures(body.as_str()) {
         form_token = caps[1].to_string();
-        println!("Good 4x");
+    //        println!("Good 4x");
     } else {
-        println!("No match found. Class Pick V2");
+        //        println!("No match found. Class Pick V2");
     }
     /*    let output = format!(
         "form_build_id={0},form_token={1}",
@@ -215,17 +215,87 @@ async fn final_req(
             reqwest::Method::POST,
             "https://essexnorthshore.schoology.com/grades/export",
         )
+        //    .headers(headers.clone())
         .headers(headers)
         .form(&params);
     let response = req.send().await?;
     let body = response.text().await?;
 
-    println!("{}", body);
+    //    println!("{}", body);
 
     let file = File::create("index.html").await?;
     let mut writer = BufWriter::new(file);
 
     writer.write_all(body.as_bytes()).await?;
+
+    let document = scraper::Html::parse_document(body.as_str());
+    let grade_selector =
+        scraper::Selector::parse("td.grade, td.grade.final-grade, td.grade.no-grade").unwrap();
+    let title_selector = scraper::Selector::parse("tr.course-title th h2").unwrap();
+    let row_selector = scraper::Selector::parse("tr").unwrap();
+
+    let mut course_grades: HashMap<String, Vec<Option<f32>>> = HashMap::new();
+    let mut current_course: Option<String> = None;
+    let mut grade_count = 0;
+
+    for row in document.select(&row_selector) {
+        if row.value().has_class(
+            "course-title",
+            scraper::CaseSensitivity::AsciiCaseInsensitive,
+        ) {
+            let title_text = row.text().collect::<String>().trim().to_string();
+            let cleaned_title_text: String = match title_text.find("\u{a0}:\u{a0}") {
+                Some(index) => title_text[..index].to_string(),
+                None => title_text.to_string(),
+            };
+
+            if cleaned_title_text == "Class of 2028 Guidance" {
+                continue;
+            }
+
+            current_course = Some(cleaned_title_text.clone());
+            course_grades.insert(cleaned_title_text, Vec::new());
+            grade_count = 0;
+        } else if let Some(course) = &current_course {
+            if grade_count >= 4 {
+                continue;
+            }
+
+            for grade_cell in row.select(&grade_selector) {
+                if grade_count >= 4 {
+                    continue;
+                }
+                let grade_text = grade_cell
+                    .text()
+                    .collect::<String>()
+                    .trim()
+                    .replace("%", "");
+                let grade = grade_text.parse::<f32>().ok();
+                course_grades.get_mut(course).unwrap().push(grade);
+                grade_count += 1;
+            }
+        }
+    }
+
+    println!("{}", serde_json::to_string_pretty(&course_grades).unwrap());
+
+    /*    let req_2 = client
+        .request(
+            reqwest::Method::GET,
+            "https://essexnorthshore.schoology.com/user/133626389/info",
+        )
+        .headers(headers.clone());
+
+    let response = req_2.send().await?;
+    let body = response.text().await?;
+
+    let regex_req_v2 =
+        regex::Regex::new(r#"<img[^>]*src="([^"]+)"[^>]*alt="[^"]*Profile picture for[^"]*""#)
+            .unwrap();
+
+    if let Some(caps) = regex_req_v2.captures(body.as_str()) {
+        println!("{:?}", caps[1].to_string());
+    } */
 
     Ok("Hi".to_string())
 }
