@@ -5,7 +5,6 @@ use tokio::{
     io::{AsyncWriteExt, BufWriter},
 };
 
-//const token: &str = "SESS948af67c60a38b4869db7f1955275d29=2a07cd84846d552d958aa8af012f32f3";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
