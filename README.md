@@ -14,6 +14,7 @@ Slide into your browser's dev tools -> cookies -> copy your `SESS9xxxx...` token
 ![alt text](cookies.png)
 
 _(dont leak it bruh)_
+
 Have it formated like so "<ins>SESS9</ins>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX=BXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
 make sure to find the SESS9 cuz there are multiple session cookies /\
