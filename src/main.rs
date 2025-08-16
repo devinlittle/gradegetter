@@ -68,12 +68,6 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, Box<dyn std::e
     } else {
         //        println!("No match found.");
     }
-    /*    let output = format!(
-        "form_build_id={0},form_token={1}",
-        form_build_id, form_token
-    )
-    .to_string();
-    Ok(output)*/
 
     let output = Forms {
         form_build_id: form_build_id,
@@ -157,12 +151,6 @@ async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error:
     } else {
         //        println!("No match found. Class Pick V2");
     }
-    /*    let output = format!(
-        "form_build_id={0},form_token={1}",
-        form_build_id, form_token
-    )
-    .to_string();
-    Ok(output)*/
 
     let output = Forms {
         form_build_id: form_build_id,
@@ -224,7 +212,6 @@ async fn fetch_final_grades_export(
             reqwest::Method::POST,
             "https://essexnorthshore.schoology.com/grades/export",
         )
-        //    .headers(headers.clone())
         .headers(headers)
         .form(&params);
     let response = req.send().await?;
