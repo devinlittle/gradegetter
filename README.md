@@ -12,6 +12,7 @@ I fucking hate schoology sm its so slow and the UI is soo outdated, slow, and th
 
 Slide into your browser's dev tools -> cookies -> copy your `SESS9xxxx...` token.  
 ![alt text](cookies.png)
+
 _(dont leak it bruh)_
 Have it formated like so "<ins>SESS9</ins>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX=BXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 
