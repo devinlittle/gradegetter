@@ -6,7 +6,7 @@ I fucking hate schoology sm its so slow and the UI is soo outdated, slow, and th
 
 ---
 
-##How to Run It
+## How to Run It
 
 ### 1. Grab your session token
 
