@@ -1,3 +1,7 @@
 /target
 index.html
 .DS_STORE
+package.json
+index.js
+node_modules/
+pnpm*

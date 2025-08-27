@@ -5,7 +5,6 @@ use tokio::{
     io::{AsyncWriteExt, BufWriter},
 };
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -108,13 +107,13 @@ async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error:
     headers.insert("upgrade-insecure-requests", "1".parse()?);
 
     let mut params = std::collections::HashMap::new();
-    params.insert("grading_period[1070869]", "1070869"); // ! CHANGE THIS FOR THE GRADING PERIOD //
+    params.insert("grading_period[1113181]", "1113181"); // ! CHANGE THIS FOR THE GRADING PERIOD //
     // Q1
-    params.insert("grading_period[1070866]", "1070866"); // ! CHANGE THIS FOR THE GRADING PERIOD 
+    params.insert("grading_period[1113182]", "1113182"); // ! CHANGE THIS FOR THE GRADING PERIOD 
     // Q2
-    params.insert("grading_period[1070867]", "1070867"); // ! CHANGE THIS FOR THE GRADING PERIOD
+    params.insert("grading_period[1113183]", "1113183"); // ! CHANGE THIS FOR THE GRADING PERIOD
     // Q3
-    params.insert("grading_period[1070868]", "1070868"); // ! CHANGE THIS FOR THE GRADING PERIOD 
+    params.insert("grading_period[1113184]", "1113184"); // ! CHANGE THIS FOR THE GRADING PERIOD 
     // Q4
     params.insert("form_id", "s_grades_export_form");
     params.insert("op", "Next");
@@ -194,13 +193,15 @@ async fn fetch_final_grades_export(
     headers.insert("upgrade-insecure-requests", "1".parse()?);
 
     let mut params = std::collections::HashMap::new();
-    params.insert("courses[7424299081][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7461240135][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7424298749][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7424300380][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7424298922][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7424299614][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7424299224][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980577079][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980577724][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980580023][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980576396][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980577162][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980580028][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980578459][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980579026][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980578058][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("comment_gps[-1]", "-1");
     params.insert("op", "Submit");
     params.insert("form_id", "s_grades_export_form");
