@@ -196,11 +196,13 @@ async fn fetch_final_grades_export(
     params.insert("courses[7980577079][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("courses[7980577724][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("courses[7980580023][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980578510][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("courses[7980576396][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("courses[7980577162][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("courses[7980580028][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("courses[7980578459][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("courses[7980579026][selected]", "1"); // UPDATE FOR CLASSES <--
+    params.insert("courses[7980578128][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("courses[7980578058][selected]", "1"); // UPDATE FOR CLASSES <--
     params.insert("comment_gps[-1]", "-1");
     params.insert("op", "Submit");
