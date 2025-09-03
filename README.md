@@ -2,10 +2,10 @@
 
 **Ts pulls your grades straight from Schoology, no clicking around, no API access required .**
 
-I fucking hate schoology sm its so slow and the UI is soo outdated, slow, and their servers are stright ass.
+I hate schoology sm its so slow and the UI is soo outdated, slow, and their servers are stright ass.
 
 ---
-
+# I AM PUTTING OFF UPDATING THIS README UNTIL THE BIG API CHANGE FOR THIS. Stay tuned
 ## How to Run It
 
 ### 1. Grab your session token

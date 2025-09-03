@@ -1,14 +1,25 @@
-use serde::Serialize;
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, str};
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
+    process::Command,
 };
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-    let token: &str = &args[1];
+    //    let args: Vec<String> = env::args().collect();
+    //    let token: &str = &args[1];
+
+    let token = String::from_utf8_lossy(
+        &Command::new("node")
+            .arg("tokengetter/")
+            .output()
+            .await
+            .expect("failed")
+            .stdout,
+    )
+    .trim()
+    .to_string();
 
     let class_pick_vars = select_grade_period(token.to_string()).await.unwrap();
     let html = fetch_final_grades_export(

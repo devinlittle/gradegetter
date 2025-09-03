@@ -1,7 +1,9 @@
-/target
-index.html
 .DS_STORE
-package.json
-index.js
+index.html
+
+/target
 node_modules/
-pnpm*
+
+!config.json.template
+config.json
+browser
