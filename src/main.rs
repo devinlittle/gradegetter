@@ -1,40 +1,95 @@
-use std::{collections::HashMap, str};
+use axum::{Router, response::IntoResponse, routing::get};
+use serde::Serialize;
+use std::{collections::HashMap, str, sync::Arc};
 use tokio::{
     fs::File,
     io::{AsyncWriteExt, BufWriter},
     process::Command,
+    sync::RwLock,
 };
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() {
+    //-> Result<(), Box<dyn std::error::Error>> {
     //    let args: Vec<String> = env::args().collect();
     //    let token: &str = &args[1];
 
-    let token = String::from_utf8_lossy(
-        &Command::new("node")
-            .arg("tokengetter/")
-            .output()
+    let token_rw = Arc::new(RwLock::new(String::new()));
+    let grades_rw = Arc::new(RwLock::new(String::new()));
+
+    // Token Getter Thread?
+    let token_rw_task1 = Arc::clone(&token_rw);
+    tokio::spawn(async move {
+        loop {
+            let token = String::from_utf8_lossy(
+                &Command::new("node")
+                    .arg("tokengetter/")
+                    .output()
+                    .await
+                    .expect("failed")
+                    .stdout,
+            )
+            .trim()
+            .to_string();
+            let mut token_write = token_rw_task1.write().await;
+            *token_write = token;
+            drop(token_write);
+            tokio::time::sleep(std::time::Duration::from_secs(1800)).await // 30 minutes
+        }
+    });
+
+    // Grade fetcher
+    let token_rw_task2 = Arc::clone(&token_rw);
+    let grades_rw_task2 = Arc::clone(&grades_rw);
+    tokio::spawn(async move {
+        loop {
+            let token_read = token_rw_task2.read().await;
+
+            let class_pick_vars = select_grade_period(token_read.to_string()).await.unwrap();
+            let html = fetch_final_grades_export(
+                class_pick_vars.form_build_id.as_str(),
+                class_pick_vars.form_token.as_str(),
+                token_read.to_string(),
+            )
             .await
-            .expect("failed")
-            .stdout,
-    )
-    .trim()
-    .to_string();
+            .unwrap();
 
-    let class_pick_vars = select_grade_period(token.to_string()).await.unwrap();
-    let html = fetch_final_grades_export(
-        class_pick_vars.form_build_id.as_str(),
-        class_pick_vars.form_token.as_str(),
-        token.to_string(),
-    )
-    .await
-    .unwrap();
+            drop(token_read);
 
-    let parsed = parse_grades_html(html)?;
-    let grades = serde_json::to_string_pretty(&parsed)?;
-    println!("{}", grades);
+            let grades = match parse_grades_html(html) {
+                Ok(data) => {
+                    serde_json::to_string_pretty(&data).expect("failed to serialize grades")
+                }
+                Err(e) => {
+                    eprintln!("Error parsing grades: {}", e);
+                    format!("Error: {}", e)
+                }
+            };
 
-    Ok(())
+            let mut grades_write = grades_rw_task2.write().await;
+            *grades_write = grades;
+            drop(grades_write);
+            tokio::time::sleep(std::time::Duration::from_secs(15)).await
+        }
+    });
+
+    let app = Router::new().route(
+        "/grades",
+        get({
+            let grades = Arc::clone(&grades_rw);
+            move || {
+                let grades = Arc::clone(&grades);
+                async move { grades_route(grades).await }
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+async fn grades_route(grades_rw: Arc<RwLock<String>>) -> (axum::http::StatusCode, String) {
+    let grades_read = grades_rw.read().await;
+    (axum::http::StatusCode::OK, grades_read.to_string())
 }
 
 struct Forms {

@@ -1,33 +1,20 @@
 # Grade Getter
 
-**Ts pulls your grades straight from Schoology, no clicking around, no API access required .**
+**ts pulls your grades straight from Schoology, no clicking around, no (offical) API access required .**
 
 I hate schoology sm its so slow and the UI is soo outdated, slow, and their servers are stright ass.
 
 ---
-# I AM PUTTING OFF UPDATING THIS README UNTIL THE BIG API CHANGE FOR THIS. Stay tuned
-## How to Run It
 
-### 1. Grab your session token
+#### What This Does
 
-Slide into your browser's dev tools -> cookies -> copy your `SESS9xxxx...` token.  
-![alt text](cookies.png)
+* Exposes your schoology grades in an API and clean JSON
 
-_(dont leak it bruh)_
+* Refreshes token so its always alive and well
 
-Have it formated like so "<ins>SESS9</ins>XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX=BXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-
-make sure to find the SESS9 cuz there are multiple session cookies /\
-
-> have it formated like this, NAME=VALUE
-
-### 2. Run the code:
-
-```bash
-cargo run --release -- your_token_here
-```
-
-### What This Does
+* refreshes grades every 15 seconds so they are up to date
+  
+  __DEEP DOWN IT...__
 
 * Pulls grading period tokens
 
@@ -35,23 +22,51 @@ cargo run --release -- your_token_here
 
 * Grabs your classes + final grades
 
-* Parses the grades into clean JSON
+* Parses the grades into a HashMap
 
 * Saves the raw HTML in index.html just in case
 
-### Function Rundown
+## SETUP
 
-| Function                      | funtion description                                               |
-| ----------------------------- | ----------------------------------------------------------------- |
-| `fetch_export_form_tokens()`  | Grabs the form tokens/build_id Schoology finna gonna hide         |
-| `select_grade_period()`       | Picks the grading quarter (change the IDs)                        |
-| `fetch_final_grades_export()` | Pulls that grade HTML after selecting your classes                |
-| `parse_grades_html()`         | Parses the mess into a usable `HashMap<String, Vec<Option<f32>>>` |
+Ensure the `tokengetter/config.json` has
+
+```json
+{
+        "email": "x.y@hawks.tech", obviously ur email and password and not this
+        "password": "password123",
+        "browser": "/Applications/Chromium.app/Contents/MacOS/Chromium" -- PATH TO CHROMIUM BINARY
+}
+```
+
+```bash
+cd tokengetter
+pnpm i
+pnpm approve-builds # note this part is interactive 
+echo "DONE!!!"
+```
+
+## RUNNING IT
+
+```bash
+cargo build --release
+./target/release/gradegetter
+```
+
+# 
+
+#### Function Rundown
+
+| Function                      | funtion description                                                       |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `fetch_export_form_tokens()`  | Grabs the form tokens/build_id Schoology finna gonna hide                 |
+| `select_grade_period()`       | Picks the grading quarter (change the IDs)                                |
+| `fetch_final_grades_export()` | selects your classes and after pulls that grade HTML after                |
+| `parse_grades_html()`         | Parses the mess of HTML into a usable `HashMap<String, Vec<Option<f32>>>` |
 
 ### OUTPUT (ignore my bad social studdies grade i was looking at the damn rust book in class)
 
 ```bash
-[devin@gentoo-vm rusty]$ ./target/release/gradegetter  SESS9XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+[devin@gentoo-vm gradegetter]$ curl 0.0.0.0:3000
 {
   "Freshmen Seminar": [
     89.0,
@@ -94,7 +109,5 @@ cargo run --release -- your_token_here
 
 ### NOTES
 
-1. tweeking required (for the requests URL)
-2. oh yeah TWEAK EVERYTHING 😭
-3. tweak the values for classes and grading periods but lowk im too tired rn so i wont show u how to do it...sorry
-4. Any issues? hmu on the issues tab
+1. I need to add a way to make the class and quarters more user friendly. But this is kinda linux only and requires a bunch of knowledge....i just need to document how this works more
+2. Any issues? hmu on the issues tab
