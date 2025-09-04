@@ -41,7 +41,6 @@ Ensure the `tokengetter/config.json` has
 ```bash
 cd tokengetter
 pnpm i
-pnpm approve-builds # note this part is interactive 
 echo "DONE!!!"
 ```
 
