@@ -66,7 +66,7 @@ cargo build --release
 ### OUTPUT (ignore my bad social studdies grade i was looking at the damn rust book in class)
 
 ```bash
-[devin@gentoo-vm gradegetter]$ curl 0.0.0.0:3000
+[devin@gentoo-vm gradegetter]$ curl http://0.0.0.0:3000/grades
 {
   "Freshmen Seminar": [
     89.0,
