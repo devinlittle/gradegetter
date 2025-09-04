@@ -1,5 +1,4 @@
-use axum::{Router, response::IntoResponse, routing::get};
-use serde::Serialize;
+use axum::{Router, routing::get};
 use std::{collections::HashMap, str, sync::Arc};
 use tokio::{
     fs::File,
@@ -10,10 +9,6 @@ use tokio::{
 
 #[tokio::main]
 async fn main() {
-    //-> Result<(), Box<dyn std::error::Error>> {
-    //    let args: Vec<String> = env::args().collect();
-    //    let token: &str = &args[1];
-
     let token_rw = Arc::new(RwLock::new(String::new()));
     let grades_rw = Arc::new(RwLock::new(String::new()));
 
@@ -225,6 +220,33 @@ async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error:
     Ok(output)
 }
 
+async fn fetch_class_ids(
+    token: &str,
+) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+    let client = reqwest::Client::builder().build()?;
+
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert("Cookie", token.parse().unwrap());
+
+    let req = client
+        .request(
+            reqwest::Method::GET,
+            "https://essexnorthshore.schoology.com/grades/grades",
+        )
+        .headers(headers);
+
+    let response = req.send().await?;
+    let body = response.text().await?;
+
+    let mut hashmap: HashMap<String, String> = HashMap::new();
+
+    let re_class_id = regex::Regex::new(r#"id="s-js-gradebook-course-(\d+)"#).unwrap();
+    for (_, [id]) in re_class_id.captures_iter(&body).map(|c| c.extract()) {
+        hashmap.insert(format!("courses[{}][selected]", id), "1".to_string());
+    }
+    Ok(hashmap)
+}
+
 // Selects classes and gets the final export, creates html file
 async fn fetch_final_grades_export(
     form_build_id: &str,
@@ -258,23 +280,10 @@ async fn fetch_final_grades_export(
     headers.insert("sec-fetch-user", "?1".parse()?);
     headers.insert("upgrade-insecure-requests", "1".parse()?);
 
-    let mut params = std::collections::HashMap::new();
-    params.insert("courses[7980577079][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980577724][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980580023][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980578510][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980576396][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980577162][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980580028][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980578459][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980579026][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980578128][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("courses[7980578058][selected]", "1"); // UPDATE FOR CLASSES <--
-    params.insert("comment_gps[-1]", "-1");
-    params.insert("op", "Submit");
-    params.insert("form_id", "s_grades_export_form");
-    params.insert("form_build_id", form_build_id);
-    params.insert("form_token", form_token);
+    let mut params = fetch_class_ids(&token).await.unwrap();
+    params.insert("form_id".to_string(), "s_grades_export_form".to_string());
+    params.insert("form_build_id".to_string(), form_build_id.to_string());
+    params.insert("form_token".to_string(), form_token.to_string());
 
     let req = client
         .request(
