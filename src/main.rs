@@ -40,10 +40,10 @@ async fn main() {
         loop {
             let token_read = token_rw_task2.read().await;
 
-            let class_pick_vars = select_grade_period(token_read.to_string()).await.unwrap();
+            let forms = select_grade_period(token_read.to_string()).await.unwrap();
             let html = fetch_final_grades_export(
-                class_pick_vars.form_build_id.as_str(),
-                class_pick_vars.form_token.as_str(),
+                forms.form_build_id.as_str(),
+                forms.form_token.as_str(),
                 token_read.to_string(),
             )
             .await
