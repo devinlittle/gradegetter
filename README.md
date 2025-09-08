@@ -108,5 +108,5 @@ cargo build --release
 
 ### NOTES
 
-1. I need to add a way to make the class and quarters more user friendly. But this is kinda linux only and requires a bunch of knowledge....i just need to document how this works more
+1. Document logging feature.
 2. Any issues? hmu on the issues tab

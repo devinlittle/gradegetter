@@ -1,16 +1,17 @@
-use axum::{Json, Router, routing::get};
+use axum::{Router, routing::get};
 use std::{collections::HashMap, str, sync::Arc};
-use tokio::{
-    fs::File,
-    io::{AsyncWriteExt, BufWriter},
-    process::Command,
-    sync::RwLock,
-};
+use tokio::{process::Command, sync::RwLock};
+use tracing::{debug, info, trace};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
     let token_rw = Arc::new(RwLock::new(String::new()));
     let grades_rw = Arc::new(RwLock::new(String::new()));
+
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
 
     // Token Getter Thread?
     let token_rw_task1 = Arc::clone(&token_rw);
@@ -29,6 +30,7 @@ async fn main() {
             let mut token_write = token_rw_task1.write().await;
             *token_write = token;
             drop(token_write);
+            info!("Got Token!");
             tokio::time::sleep(std::time::Duration::from_secs(1800)).await // 30 minutes
         }
     });
@@ -64,6 +66,7 @@ async fn main() {
             let mut grades_write = grades_rw_task2.write().await;
             *grades_write = grades;
             drop(grades_write);
+            info!("Grades Updated Succesfully");
             tokio::time::sleep(std::time::Duration::from_secs(15)).await
         }
     });
@@ -87,6 +90,7 @@ async fn grades_route(grades_rw: Arc<RwLock<String>>) -> (axum::http::StatusCode
     (axum::http::StatusCode::OK, grades_read.to_string())
 }
 
+#[derive(Debug)]
 struct Forms {
     form_build_id: String,
     form_token: String,
@@ -115,24 +119,26 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, Box<dyn std::e
     let reV1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
     if let Some(caps) = reV1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
-    //        println!("Good 1x");
+        debug!("fetch_export_form_tokens: form token match found");
     } else {
-        //        println!("No match found.");
+        debug!("fetch_export_form_tokens: form token NO match found");
     }
 
     let reV2 =
         regex::Regex::new(r#"<input type="hidden" name="form_token" id="edit-s-grades-export-form-form-token-1" value="([^"]+)""#).unwrap();
     if let Some(caps) = reV2.captures(body.as_str()) {
         form_token = caps[1].to_string();
-    //        println!("Good 2x");
+        debug!("fetch_export_form_tokens: form token match found");
     } else {
-        //        println!("No match found.");
+        debug!("fetch_export_form_tokens: form token NO match found");
     }
 
     let output = Forms {
         form_build_id: form_build_id,
         form_token: form_token,
     };
+
+    debug!("fetch_export_form_tokens output: {:?}", output);
 
     Ok(output)
 }
@@ -199,23 +205,25 @@ async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error:
     let reV1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
     if let Some(caps) = reV1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
-    //        println!("Good 3x");
+        debug!("select_grade_period: form token match found");
     } else {
-        //        println!("No match found. Class Pick V1");
+        debug!("select_grade_period: form token NO match found");
     }
 
     let reV2 = regex::Regex::new(r#"form-token" value="([^"]+)""#).unwrap();
     if let Some(caps) = reV2.captures(body.as_str()) {
         form_token = caps[1].to_string();
-    //        println!("Good 4x");
+        debug!("select_grade_period: form token match found");
     } else {
-        //        println!("No match found. Class Pick V2");
+        debug!("select_grade_period: form token NO match found");
     }
 
     let output = Forms {
         form_build_id: form_build_id,
         form_token: form_token,
     };
+
+    debug!("select_grade_period output: {:?}", output);
 
     Ok(output)
 }
@@ -242,6 +250,7 @@ async fn fetch_class_ids(
 
     let re_class_id = regex::Regex::new(r#"id="s-js-gradebook-course-(\d+)"#).unwrap();
     for (_, [id]) in re_class_id.captures_iter(&body).map(|c| c.extract()) {
+        trace!("{id}");
         hashmap.insert(format!("courses[{}][selected]", id), "1".to_string());
     }
     Ok(hashmap)
@@ -293,14 +302,10 @@ async fn fetch_final_grades_export(
         .headers(headers)
         .form(&params);
     let response = req.send().await?;
+
+    debug!("fetch_final_grades_export: page_url {}", response.url());
+
     let body = response.text().await?;
-
-    //    println!("{}", body);
-
-    let file = File::create("index.html").await?;
-    let mut writer = BufWriter::new(file);
-
-    writer.write_all(body.as_bytes()).await?;
 
     Ok(body)
 }
