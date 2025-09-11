@@ -1,93 +1,121 @@
-use axum::{Router, routing::get};
-use std::{collections::HashMap, str, sync::Arc};
-use tokio::{process::Command, sync::RwLock};
+use axum::{Router, response::IntoResponse, routing::get};
+use crypto_utils::decrypt_string;
+use serde_json::Value;
+use sqlx::postgres::PgPoolOptions;
+use std::{collections::HashMap, str, sync::Arc, time::Duration};
+use tokio::{net::TcpListener, process::Command};
 use tracing::{debug, info, trace};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
-    let token_rw = Arc::new(RwLock::new(String::new()));
-    let grades_rw = Arc::new(RwLock::new(String::new()));
-
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
+    let database_string = dotenvy::var("DATABASE_URL").expect("DATABASE_URL not found");
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .acquire_timeout(Duration::from_secs(3))
+        .connect(&database_string)
+        .await
+        .expect("can't connect to database");
+    let pool = Arc::new(pool);
+
     // Token Getter Thread?
-    let token_rw_task1 = Arc::clone(&token_rw);
+    let pool_token = Arc::clone(&pool);
     tokio::spawn(async move {
         loop {
-            let token = String::from_utf8_lossy(
-                &Command::new("node")
-                    .arg("tokengetter/")
-                    .output()
+            if let Ok(users) =
+                sqlx::query!("SELECT id, encrypted_email, encrypted_password FROM schoology_auth")
+                    .fetch_all(&*pool_token)
                     .await
-                    .expect("failed")
-                    .stdout,
-            )
-            .trim()
-            .to_string();
-            let mut token_write = token_rw_task1.write().await;
-            *token_write = token;
-            drop(token_write);
+            {
+                for user in users {
+                    let (id, email, password) =
+                        (user.id, user.encrypted_email, user.encrypted_password);
+
+                    let dec_password = decrypt_string(password.as_str());
+                    let dec_email = decrypt_string(email.as_str());
+
+                    let _ = sqlx::query!(
+                        "UPDATE schoology_auth SET session_token = $1 WHERE id = $2",
+                        get_token(dec_email.unwrap().as_str(), dec_password.unwrap().as_str())
+                            .await
+                            .unwrap(),
+                        id
+                    )
+                    .execute(&*pool_token)
+                    .await;
+                    info!("Updated token for UUID: {}", id);
+                }
+            }
             info!("Got Token!");
             tokio::time::sleep(std::time::Duration::from_secs(1800)).await // 30 minutes
         }
     });
 
     // Grade fetcher
-    let token_rw_task2 = Arc::clone(&token_rw);
-    let grades_rw_task2 = Arc::clone(&grades_rw);
+    let pool_grades = Arc::clone(&pool);
     tokio::spawn(async move {
         loop {
-            let token_read = token_rw_task2.read().await;
-
-            let forms = select_grade_period(token_read.to_string()).await.unwrap();
-            let html = fetch_final_grades_export(
-                forms.form_build_id.as_str(),
-                forms.form_token.as_str(),
-                token_read.to_string(),
-            )
-            .await
-            .unwrap();
-
-            drop(token_read);
-
-            let grades = match parse_grades_html(html) {
-                Ok(data) => {
-                    serde_json::to_string_pretty(&data).expect("failed to serialize grades")
+            if let Ok(users) = sqlx::query!("SELECT id, session_token FROM schoology_auth")
+                .fetch_all(&*pool_grades)
+                .await
+            {
+                for user in users {
+                    if let (id, Some(token)) = (user.id, user.session_token) {
+                        let _ = sqlx::query!(
+                                "INSERT INTO grades (id, grades) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET grades = EXCLUDED.grades",
+                                id,
+                                fetch_grades(token).await.unwrap()
+                            )
+                            .execute(&*pool_grades)
+                            .await
+                            .map_err(|err| {
+                                tracing::error!("Database error: {}", err);
+                                axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                            });
+                        info!("Updated grades for UUID: {}", id);
+                    }
                 }
-                Err(e) => {
-                    eprintln!("Error parsing grades: {}", e);
-                    format!("Error: {}", e)
-                }
-            };
-
-            let mut grades_write = grades_rw_task2.write().await;
-            *grades_write = grades;
-            drop(grades_write);
-            info!("Grades Updated Succesfully");
-            tokio::time::sleep(std::time::Duration::from_secs(15)).await
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await
         }
     });
 
-    let app = Router::new().route(
-        "/grades",
-        get({
-            let grades = Arc::clone(&grades_rw);
-            move || {
-                let grades = Arc::clone(&grades);
-                async move { grades_route(grades).await }
-            }
-        }),
-    );
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let app = Router::new().route("/", get(health));
+    let listener = TcpListener::bind("0.0.0.0:3001").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn grades_route(grades_rw: Arc<RwLock<String>>) -> (axum::http::StatusCode, String) {
-    let grades_read = grades_rw.read().await;
-    (axum::http::StatusCode::OK, grades_read.to_string())
+async fn health() -> impl IntoResponse {
+    "Alive".to_string()
+}
+
+async fn get_token(email: &str, password: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let output = Command::new("node")
+        .arg("../tokengetter/") // Assuming this is the path; adjust if needed
+        .arg(email)
+        .arg(password)
+        .output()
+        .await?;
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+async fn fetch_grades(token: String) -> Result<Value, Box<dyn std::error::Error>> {
+    let forms = select_grade_period(token.clone()).await?;
+    let html = fetch_final_grades_export(
+        forms.form_build_id.as_str(),
+        forms.form_token.as_str(),
+        token,
+    )
+    .await?;
+
+    let grades: HashMap<String, Vec<Option<f32>>> = parse_grades_html(html)?;
+    Ok(serde_json::to_value(grades)?)
 }
 
 #[derive(Debug)]

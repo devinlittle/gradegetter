@@ -1,0 +1,27 @@
+#!/sbin/openrc-run
+
+name="backend"
+command="/usr/bin/backend"
+pidfile="/var/run/backend.pid"
+command_background=true
+
+depend() {
+    need net
+}
+
+start_pre() {
+    export $(cat /etc/backend/env | xargs)
+}
+
+start() {
+    ebegin "Starting backend"
+    /usr/bin/backend > /var/log/backend.log 2>&1 &
+    echo $! > "$pidfile"
+    eend $?
+}
+
+stop() {
+    ebegin "Stopping backend"
+    kill "$(cat $pidfile)"
+    eend $?
+}

@@ -1,0 +1,54 @@
+[package]
+name = "backend"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+tokio.workspace = true
+axum.workspace = true
+hyper.workspace = true
+hyper-tls.workspace = true
+tower-http.workspace = true
+tower.workspace = true
+
+reqwest.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["raw_value"]  }
+
+sha2.workspace = true
+sqlx = { workspace = true, features = [
+  "runtime-tokio-rustls",
+  "postgres",
+  "migrate",
+  "json",
+  "time",
+  "uuid"]}
+uuid.workspace = true
+time.workspace = true
+jsonwebtoken.workspace = true
+crypto_utils.workspace = true
+
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+dotenvy.workspace = true
+constant_time_eq.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+
+
+[package.metadata.deb]
+maintainer = "Devin Little <devinlittlee@gmail.com>"
+copyright = "2025, Devin Little <devinlittlee@gmail.com>"
+#license-file = ["LICENSE", "4"]
+extended-description = """\
+bruh i cant anyomre its my backend service thats it."""
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/backend", "usr/bin/", "755"],
+    ["res/init/systemd/backend.service", "usr/lib/systemd/sytstem/", "755"],
+    ["env.template", "etc/backend/env", "755"],
+]

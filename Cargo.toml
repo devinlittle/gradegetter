@@ -1,19 +1,38 @@
-[package]
-name = "gradegetter"
-version = "1.0.0"
-edition = "2024"
+[workspace]
+resolver = "3"
+members = [
+"backend/", "crypto_utils", "gradegetter/",
+]
 
-[dependencies]
-reqwest = "0.12"
+[workspace.dependencies]
 tokio = {version = "1", features = ["full"]}
-regex = "1"
-serde = {version = "1", features=["derive"]}
-serde_json = "1"
-scraper = "0.24"
-axum = "0.8.4"
+axum = {version = "0.8.4"}
+axum-extra = "0.10.1"
+hyper = {version = "1.6.0"}
+hyper-tls = "0.6.0"
+tower-http = { version = "0.6.6", features = ["cors"]}
+tower = "0.5.2"
+reqwest = {version = "0.12"}
+serde = {version = "1", features = ["derive"]}
+serde_json = {version = "1"}
+sha2 = {version = "0.10.9"}
+sqlx = {version = "0.8.6"}
+uuid = {version = "1.18.1", features = ["v4", "serde"]}
+time = "0.3.43"
+jsonwebtoken = "9.3.1"
 tracing = "0.1.41"
-tracing-subscriber = {version = "0.3.20", features = ["env-filter"]}
+tracing-subscriber = {version = "0.3.20", features = ["env-filter"] }
+dotenvy = "0.15.7"
+constant_time_eq = "0.4.2"
+totp-rs = { version = "5.7.0", features = ["qr"]} 
+regex = "1"
+scraper = "0.24"
+crypto_utils = { path = "./crypto_utils" }
 
 
-[target.'cfg(target_os = "linux")'.dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
+[profile.release]
+panic = "abort" # Strip expensive panic clean-up logic
+codegen-units = 1 # Compile crates one after another so the compiler can optimize better
+lto = true # Enables link to optimizations
+opt-level = "s" # Optimize for binary size
+strip = true # Remove debug symbols

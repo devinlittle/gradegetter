@@ -1,0 +1,50 @@
+# Maintainer: Devin Little <devinlittlee@gmail.com>
+# Based off of amazingpacking PKGBUILD
+pkgname=backend
+pkgver=0.0.1
+pkgrel=1
+pkgdesc="idk what i said for the last file so just imagine i said that instead of this :wink:"
+url="https://devinlittle.net/"
+arch=("x86_64" "aarch64")
+license=("GPL-3.0-or-later")
+provides=('backend')
+makedepends=("cargo" "openssl" "git")                       #"pandoc")
+source=("git+http://voidsec.local:3000/devin/monorepo.git") # <-------------------------------------------------- NEED TO FIX FOR GITHUB WHEN REPO BECOMES PUBLIC
+sha256sums=("SKIP")
+
+prepare() {
+  cd "monorepo/apps/backend"
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "monorepo/apps/backend"
+  echo "
+    PORT=3000
+    DATABASE_URL=postgres://devin:password@10.0.0.5/smart_thing 
+    HASH_SECRET=SECRET
+    JWT_SECRET=SECRET
+    " >.env # <------------------------------------------------------------------------------- BUILDING LIKE HTIS IS UNEXCUSEABLE but..im gonna ignore it for now
+  cargo build --frozen --release
+  mkdir -p target/man
+  #  for manpage in amazingpacking.1; do
+  #    pandoc --standalone -f markdown -t man "res/${manpage}.md" >"target/man/${manpage}"
+  #  done
+}
+
+#check() {
+#  cd "${pkgname}-${pkgver}"
+#  cargo test --frozen
+#}
+
+package() {
+  cd "monorepo"
+  install -Dm755 "target/release/${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+
+  # conf setup
+  mkdir -p ${pkgdir}/etc/backend
+  install -Dm755 apps/backend/env.template ${pkgdir}/etc/backend/env
+
+  install -Dm755 apps/backend/res/init/systemd/backend.service ${pkgdir}/usr/lib/systemd/system/backend.service
+  #install -Dm644 LICEN?E "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}

@@ -1,0 +1,39 @@
+# Template file for 'backend'
+pkgname=backend
+version=0.0.1
+revision=1
+build_style=cargo
+build_helper="rust"
+#hostmakedepends="openssl"
+short_desc="my backend"
+maintainer="Devin Little <devinlittlee@gmail.com>"
+license="GPL-3.0-or-later"
+homepage="https://devinlittle.net"
+distfiles="https://home.devinlittle.net:8888/main.zip"
+checksum=
+
+
+pre_install() {
+  cd monorepo/apps/backend
+  echo "
+    PORT=3000
+    DATABASE_URL=postgres://devin:password@10.0.0.5/smart_thing 
+    HASH_SECRET=SECRET
+    JWT_SECRET=SECRET
+  " >.env # <------------------------------------------------------------------------------- BUILDING LIKE HTIS IS UNEXCUSEABLE but..im gonna ignore it for now
+
+}
+
+post_install() {
+        vsv dhcpcd
+        #vcompletion completions/bash/blahblah bash
+        #vcompletion completions/fish/blahblah.fish fish
+        #vcompletion completions/zsh/_blahblah zsh
+
+        #for manpage in amazingpacking.1; do
+        #        pandoc --standalone -f markdown -t man res/${manpage}.md > ${manpage}
+        #        vman ${manpage}
+        #done
+
+        #vlicense LICENCE
+}

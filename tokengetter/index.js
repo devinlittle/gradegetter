@@ -2,7 +2,7 @@ const puppeteer = require('puppeteer');
 const config = require("./config.json");
 
 (async () => {
-
+  const args = process.argv;
   const browser = await puppeteer.launch({
     executablePath: `${config.browser}`,
     headless: true,
@@ -13,12 +13,12 @@ const config = require("./config.json");
   // login
   await page.goto('https://essexnorthshore.schoology.com/');
 
-  await page.type('input[type="email"]', `${config.email}`); // <-- config value
+  await page.type('input[type="email"]', `${args[2]}`); // <-- config value
   await page.click('#identifierNext');
   await page.waitForNavigation({ waitUntil: 'networkidle0' });
 
 
-  await page.type('input[type="password"]', `${config.password}`); // <-- config value
+  await page.type('input[type="password"]', `${args[3]}`); // <-- config value
   await page.click('#passwordNext');
 
   await page.waitForNavigation({ waitUntil: 'networkidle0' });

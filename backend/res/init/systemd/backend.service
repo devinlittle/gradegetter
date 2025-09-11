@@ -1,0 +1,16 @@
+[Unit]
+Description=Backend Service
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/backend/env
+ExecStart=/usr/bin/backend
+#Restart=on-failure
+#RestartSec=5
+StandardOutput=append:/var/log/backend.log
+StandardError=append:/var/log/backend.log
+WorkingDirectory=/
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,28 @@
+[package]
+name = "gradegetter"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+reqwest.workspace = true 
+tokio.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+scraper.workspace = true
+sqlx = { workspace = true, features = [
+  "runtime-tokio-rustls",
+  "postgres",
+  "json",
+  "time",
+  "uuid"]}
+dotenvy.workspace = true
+crypto_utils.workspace = true
+
+axum.workspace = true 
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+

@@ -1,0 +1,4 @@
+#!/bin/sh -e
+exec 2>&1
+export $(cat /etc/backend/env | xargs)
+exec /usr/bin/backend > /var/log/backend 2>&1
