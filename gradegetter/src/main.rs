@@ -31,6 +31,10 @@ async fn main() {
                 sqlx::query!("SELECT id, encrypted_email, encrypted_password FROM schoology_auth")
                     .fetch_all(&*pool_token)
                     .await
+                    .map_err(|err| {
+                        tracing::info!("Database error: {}", err);
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                    })
             {
                 for user in users {
                     let (id, email, password) =
@@ -47,7 +51,12 @@ async fn main() {
                         id
                     )
                     .execute(&*pool_token)
-                    .await;
+                    .await
+                    .map_err(|err| {
+                        tracing::info!("Database error: {}", err);
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                    });
+
                     info!("Updated token for UUID: {}", id);
                 }
             }
@@ -63,6 +72,10 @@ async fn main() {
             if let Ok(users) = sqlx::query!("SELECT id, session_token FROM schoology_auth")
                 .fetch_all(&*pool_grades)
                 .await
+                .map_err(|err| {
+                    tracing::info!("Database error: {}", err);
+                    axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                })
             {
                 for user in users {
                     if let (id, Some(token)) = (user.id, user.session_token) {
@@ -150,17 +163,17 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, Box<dyn std::e
     let response = req.send().await?;
     let body = response.text().await?;
 
-    let reV1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
-    if let Some(caps) = reV1.captures(body.as_str()) {
+    let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
+    if let Some(caps) = re_v1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
         debug!("fetch_export_form_tokens: form token match found");
     } else {
         debug!("fetch_export_form_tokens: form token NO match found");
     }
 
-    let reV2 =
+    let re_v2 =
         regex::Regex::new(r#"<input type="hidden" name="form_token" id="edit-s-grades-export-form-form-token-1" value="([^"]+)""#).unwrap();
-    if let Some(caps) = reV2.captures(body.as_str()) {
+    if let Some(caps) = re_v2.captures(body.as_str()) {
         form_token = caps[1].to_string();
         debug!("fetch_export_form_tokens: form token match found");
     } else {
@@ -168,8 +181,8 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, Box<dyn std::e
     }
 
     let output = Forms {
-        form_build_id: form_build_id,
-        form_token: form_token,
+        form_build_id,
+        form_token,
     };
 
     debug!("fetch_export_form_tokens output: {:?}", output);
@@ -219,8 +232,8 @@ async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error:
     params.insert("form_id", "s_grades_export_form");
     params.insert("op", "Next");
     let params_needed = fetch_export_form_tokens(token).await.unwrap();
-    params.insert("form_build_id", &params_needed.form_build_id.as_str());
-    params.insert("form_token", &params_needed.form_token.as_str());
+    params.insert("form_build_id", params_needed.form_build_id.as_str());
+    params.insert("form_token", params_needed.form_token.as_str());
 
     let req = client
         .request(
@@ -236,16 +249,16 @@ async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error:
     let mut form_build_id = "N/A".to_string();
     let mut form_token = "N/A".to_string();
 
-    let reV1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
-    if let Some(caps) = reV1.captures(body.as_str()) {
+    let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
+    if let Some(caps) = re_v1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
         debug!("select_grade_period: form token match found");
     } else {
         debug!("select_grade_period: form token NO match found");
     }
 
-    let reV2 = regex::Regex::new(r#"form-token" value="([^"]+)""#).unwrap();
-    if let Some(caps) = reV2.captures(body.as_str()) {
+    let re_v2 = regex::Regex::new(r#"form-token" value="([^"]+)""#).unwrap();
+    if let Some(caps) = re_v2.captures(body.as_str()) {
         form_token = caps[1].to_string();
         debug!("select_grade_period: form token match found");
     } else {
@@ -253,8 +266,8 @@ async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error:
     }
 
     let output = Forms {
-        form_build_id: form_build_id,
-        form_token: form_token,
+        form_build_id,
+        form_token,
     };
 
     debug!("select_grade_period output: {:?}", output);
@@ -344,15 +357,15 @@ async fn fetch_final_grades_export(
     Ok(body)
 }
 
-fn parse_grades_html(
-    html: String,
-) -> Result<HashMap<String, Vec<Option<f32>>>, Box<dyn std::error::Error>> {
+type GradesHashMap = HashMap<String, Vec<Option<f32>>>;
+
+fn parse_grades_html(html: String) -> Result<GradesHashMap, Box<dyn std::error::Error>> {
     let document = scraper::Html::parse_document(html.as_str());
     let grade_selector =
         scraper::Selector::parse("td.grade, td.grade.final-grade, td.grade.no-grade").unwrap();
     let row_selector = scraper::Selector::parse("tr").unwrap();
 
-    let mut course_grades: HashMap<String, Vec<Option<f32>>> = HashMap::new();
+    let mut course_grades: GradesHashMap = HashMap::new();
     let mut current_course: Option<String> = None;
     let mut grade_count = 0;
 
