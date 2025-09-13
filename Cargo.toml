@@ -24,11 +24,15 @@ tracing = "0.1.41"
 tracing-subscriber = {version = "0.3.20", features = ["env-filter"] }
 dotenvy = "0.15.7"
 constant_time_eq = "0.4.2"
-totp-rs = { version = "5.7.0", features = ["qr"]} 
 regex = "1"
 scraper = "0.24"
+aes-gcm = "0.10"
+aes = "0.8.4"
+rand = "0.9"
+base64 = "0.22"
+once_cell = "1.21"
 crypto_utils = { path = "./crypto_utils" }
-
+#totp-rs = { version = "5.7.0", features = ["qr"]}  # used to be in here for something else.
 
 [profile.release]
 panic = "abort" # Strip expensive panic clean-up logic

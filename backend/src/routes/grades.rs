@@ -52,7 +52,7 @@ pub async fn grades_handler(
     let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
     let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
     let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
-    let uuid_jwt = match jsonwebtoken::decode::<Claims>(&req.token, &decoding_key, &validation)
+    let uuid = match jsonwebtoken::decode::<Claims>(&req.token, &decoding_key, &validation)
         .map(|x| x.claims.sub)
     {
         Ok(uuid) => uuid,
@@ -79,10 +79,10 @@ pub async fn grades_handler(
             return Err(axum::http::StatusCode::UNAUTHORIZED);
         }
     };
-    info!("Giving Grades to: {:?}", uuid_jwt);
+    info!("Giving Grades to: {:?}", uuid);
 
-    let uuid = uuid::Uuid::parse_str(uuid_jwt.as_str())
-        .map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+    let uuid =
+        uuid::Uuid::parse_str(uuid.as_str()).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
 
     let grades_row = sqlx::query!("SELECT grades FROM grades WHERE id = $1", uuid)
         .fetch_optional(&pool)
@@ -96,8 +96,6 @@ pub async fn grades_handler(
         Some(grades) => grades,
         None => return Err(axum::http::StatusCode::BAD_REQUEST),
     };
-
-    info!("{}", grades);
 
     Ok(Json(grades))
 }
