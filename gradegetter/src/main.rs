@@ -1,5 +1,5 @@
 use axum::{Router, response::IntoResponse, routing::get};
-use crypto_utils::decrypt_string;
+use crypto_utils::{decrypt_string, encrypt_string};
 use serde_json::Value;
 use sqlx::postgres::PgPoolOptions;
 use std::{collections::HashMap, str, sync::Arc, time::Duration};
@@ -69,7 +69,11 @@ async fn main() {
                         let _ = sqlx::query!(
                                 "INSERT INTO grades (id, grades) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET grades = EXCLUDED.grades",
                                 id,
-                                fetch_grades(token).await.unwrap()
+                                fetch_grades(
+                                    decrypt_string(token.as_str()).expect("Decrypting Token String Failed")
+                                )
+                                .await
+                                .unwrap()
                             )
                             .execute(&*pool_grades)
                             .await
@@ -102,7 +106,9 @@ async fn get_token(email: &str, password: &str) -> Result<String, Box<dyn std::e
         .output()
         .await?;
 
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(encrypt_string(
+        String::from_utf8_lossy(&output.stdout).trim(),
+    ))
 }
 
 async fn fetch_grades(token: String) -> Result<Value, Box<dyn std::error::Error>> {
