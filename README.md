@@ -107,6 +107,9 @@ cargo build --release
 ```
 
 ### NOTES
-
-1. Document logging feature.
-2. Any issues? hmu on the issues tab
+#### TODO
+1. pt1. I GOTTA  rotate user agents to look more human.
+1. pt2. Document logging feature.
+2. LOGIN FEATURE FOR ANDROID.
+3. https/tls for api
+4. Any issues? hmu on the issues tab

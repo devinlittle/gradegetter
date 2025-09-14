@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/widget_text"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="Loading..."
+        android:textSize="14sp"
+        android:textColor="#212121"
+        android:maxLines="20"
+        android:scrollHorizontally="false"
+        android:ellipsize="end"
+        android:lineSpacingExtra="4dp"
+        android:fontFamily="sans-serif-medium" />
+</FrameLayout>
