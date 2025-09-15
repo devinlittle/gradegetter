@@ -1,10 +1,9 @@
 const puppeteer = require('puppeteer');
-const config = require("./config.json");
 
 (async () => {
   const args = process.argv;
   const browser = await puppeteer.launch({
-    executablePath: `${config.browser}`,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH, 
     headless: true,
     args: ["--incognito", "--no-sandbox", "--disable-setuid-sandbox"]
   });

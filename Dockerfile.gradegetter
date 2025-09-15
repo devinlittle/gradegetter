@@ -1,0 +1,64 @@
+# syntax=docker/dockerfile:1
+ARG RUST_VERSION=1.89.0
+ARG NODE_VERSION=24.8
+ARG BUN_VERSION=1.2.21
+ARG APP_NAME=gradegetter
+
+################################################################################
+FROM oven/bun:canary-alpine AS bun-build
+WORKDIR /app
+COPY tokengetter/package*.json ./tokengetter/
+RUN cd tokengetter && \
+    apk add --no-cache git python3 make g++ && \
+    bun install --frozen-lockfile
+
+################################################################################
+FROM rust:${RUST_VERSION}-alpine AS rust-build
+ARG APP_NAME
+WORKDIR /app
+COPY . .
+RUN apk add --no-cache clang lld musl-dev git perl make
+ENV SQLX_OFFLINE=true
+RUN --mount=type=cache,target=/app/target/ \
+    --mount=type=cache,target=/usr/local/cargo/git/db \
+    --mount=type=cache,target=/usr/local/cargo/registry/ \
+cargo build --locked --release --bin gradegetter && \
+cp ./target/release/$APP_NAME /bin/gradegetter
+
+################################################################################
+FROM node:${NODE_VERSION}-alpine AS final
+ARG UID=10001
+
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    && rm -rf /var/cache/apk/*
+
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    appuser
+WORKDIR /app
+COPY --from=bun-build /app/tokengetter/node_modules ./tokengetter/node_modules
+COPY tokengetter/ ./tokengetter/
+
+COPY --from=rust-build /bin/gradegetter ./gradegetter/gradegetter
+COPY gradegetter/ ./gradegetter/
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/lib/chromium/chromium
+ENV RUST_LOG=info
+
+RUN chown -R appuser:appuser /app
+USER appuser
+WORKDIR /app/gradegetter
+
+CMD ["./gradegetter"]

@@ -112,12 +112,20 @@ async fn health() -> impl IntoResponse {
 }
 
 async fn get_token(email: &str, password: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let executable =
+        dotenvy::var("PUPPETEER_EXECUTABLE_PATH").expect("PUPPETEER_EXECUTABLE_PATH not found");
     let output = Command::new("node")
-        .arg("../tokengetter/") // Assuming this is the path; adjust if needed
+        .env("PUPPETEER_EXECUTABLE_PATH", executable)
+        .arg("../tokengetter/") // ASSuming this is the path; adjust if needed...ass
         .arg(email)
         .arg(password)
         .output()
         .await?;
+
+    tracing::error!(
+        "{}",
+        format!("{:?}", String::from_utf8_lossy(&output.stderr))
+    );
 
     Ok(encrypt_string(
         String::from_utf8_lossy(&output.stdout).trim(),
