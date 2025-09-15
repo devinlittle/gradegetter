@@ -122,11 +122,6 @@ async fn get_token(email: &str, password: &str) -> Result<String, Box<dyn std::e
         .output()
         .await?;
 
-    tracing::error!(
-        "{}",
-        format!("{:?}", String::from_utf8_lossy(&output.stderr))
-    );
-
     Ok(encrypt_string(
         String::from_utf8_lossy(&output.stdout).trim(),
     ))
