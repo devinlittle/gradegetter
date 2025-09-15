@@ -1,9 +1,14 @@
-.DS_STORE
-index.html
-
-/target
+# Build Artifacts
+/target/
 node_modules/
 
-!config.json.template
-config.json
-browser
+# OS Specific
+.DS_STORE
+
+# Rust Stuff
+**/*.rs.bk
+
+# Editor Specific
+*.swp
+*.swo
+*~

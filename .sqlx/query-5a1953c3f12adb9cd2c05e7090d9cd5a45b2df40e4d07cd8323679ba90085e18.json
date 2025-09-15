@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO schoology_auth (id, encrypted_email, encrypted_password) VALUES ($1, $2, $3)\n         ON CONFLICT (id) DO UPDATE SET \n             encrypted_email = EXCLUDED.encrypted_email,\n             encrypted_password = EXCLUDED.encrypted_password",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5a1953c3f12adb9cd2c05e7090d9cd5a45b2df40e4d07cd8323679ba90085e18"
+}

@@ -1,17 +1,6 @@
-# Build artifacts
-/target
-
-# Editor Stuff
-*.swp
-*~
-*.swo
-
-# env files
-*.env
-*.env.*
+# env files and secerts
+.env
+.env.*
 
 # Doesnt ignore the env.template file
 !*.env.template 
-
-# Temp dirs/files
-.sqlx
