@@ -169,9 +169,9 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, Box<dyn std::e
     let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
     if let Some(caps) = re_v1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
-        debug!("fetch_export_form_tokens: form token match found");
+        debug!("fetch_export_form_tokens: form_build_id match found");
     } else {
-        debug!("fetch_export_form_tokens: form token NO match found");
+        debug!("fetch_export_form_tokens: form_build_id NO match found");
     }
 
     let re_v2 =
@@ -255,9 +255,9 @@ async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error:
     let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
     if let Some(caps) = re_v1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
-        debug!("select_grade_period: form token match found");
+        debug!("select_grade_period: form_build_id match found");
     } else {
-        debug!("select_grade_period: form token NO match found");
+        debug!("select_grade_period: form_build_id NO match found");
     }
 
     let re_v2 = regex::Regex::new(r#"form-token" value="([^"]+)""#).unwrap();
