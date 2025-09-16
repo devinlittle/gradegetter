@@ -31,6 +31,7 @@ ARG UID=10001
 
 RUN apk add --no-cache \
     chromium \
+    udev \
     nss \
     freetype \
     freetype-dev \
@@ -38,6 +39,10 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont \
     && rm -rf /var/cache/apk/*
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV XDG_CONFIG_HOME=/tmp/.config
+ENV XDG_CACHE_HOME=/tmp/.cache
 
 RUN adduser \
     --disabled-password \
