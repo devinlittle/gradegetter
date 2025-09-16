@@ -110,6 +110,7 @@ cargo build --release
 #### TODO
 1. pt1. I GOTTA  rotate user agents to look more human.
 1. pt2. Document logging feature.
-2. LOGIN FEATURE FOR ANDROID.
 3. https/tls for api
 4. Any issues? hmu on the issues tab
+
+the fix for the docker file was litterly to update dependencies...well thats the jist of it but yeah im kinda sad i spent 5+ hours debugging this :(
