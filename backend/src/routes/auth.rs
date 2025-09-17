@@ -129,7 +129,7 @@ pub async fn login_handler(
         let sub = user.id.to_string();
         let username = req.username.to_string();
         let iat = OffsetDateTime::now_utc();
-        let exp = iat + time::Duration::days(7);
+        let exp = iat + time::Duration::days(365);
 
         let claims = Claims::new(sub.clone(), username, iat, exp);
 
