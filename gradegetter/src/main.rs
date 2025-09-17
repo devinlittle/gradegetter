@@ -98,7 +98,7 @@ async fn main() {
                     }
                 }
             }
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await
         }
     });
 
