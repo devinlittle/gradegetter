@@ -1,18 +1,49 @@
 # Grade Getter
 
-**ts pulls your grades straight from Schoology, no clicking around, no (offical) API access required .**
-
-I hate schoology sm its so slow and the UI is soo outdated, slow, and their servers are stright ass.
+A Rust powered monorepo to scrape Schoology grades, encrypt important information, and serve clean JSON. 
 
 ---
 
-#### What This Does
+## Features
+
+- 📚 **Real-time Grade Scraping**: Fetches Schoology grades every 10 seconds.
+
+- 🔒 **AES Encryption**: Secures session tokens, emails, and passwords in PostgreSQL.
+
+- 👥 **Multi-user Support**: Scales from 10 to 100 users. 
+
+- 🛠️ **Homelab Ready**: Deploys on k3s with Traefik, WireGuard, and Loki/Grafana logs.
+
+- 🗂️ **Monorepo Power**: Root orchestrates: `backend`, `gradegetter`, `crypto_utils`, and `tokengetter` crates.
+
+#### Each Progam:
+
+| Program      | Function                                                                               |
+| ------------ | -------------------------------------------------------------------------------------- |
+| backend      | the backend service which interacts with the database safely                           |
+| gradegetter  | fetches grades and formats them into valid json, putting them into a postgres database |
+| tokengetter  | grabs schoology session token using puppeteer                                          |
+| crypto_utils | the encryption and decryption crate                                                    |
+
+#### Tech Stack:
+
+* [Rust](https://rust-lang.org)
+
+* [bun](https://bun.sh)
+
+* [pnpm](https://pnpm.io)
+
+* [NodeJS](https://nodejs.org))
+
+* [PostgreSQL](https://www.postgresql.org/)
+
+#### What This Does:
 
 * Exposes your schoology grades in an API and clean JSON
 
-* Refreshes token so its always alive and well
+* Refreshes token so its always alive and well (every 30 minutes token will be refreshed)
 
-* refreshes grades every 15 seconds so they are up to date
+* refreshes grades every 10 seconds so they are up to date
   
   __DEEP DOWN IT...__
 
@@ -22,95 +53,70 @@ I hate schoology sm its so slow and the UI is soo outdated, slow, and their serv
 
 * Grabs your classes + final grades
 
-* Parses the grades into a HashMap
+* Parses the grades into a HashMap 
 
-* Saves the raw HTML in index.html just in case
+#### Usage:
 
-## SETUP
-
-Ensure the `tokengetter/config.json` has
-
-```json
+```bash
+[devin@gentoo-vm gradegetter] curl --location 'http://0.0.0.0:3000/grades' \
+--header 'Content-Type: application/json' \
+--data '{
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlM2E4YTAxZC0zYWRlLTQ5M2MtODE5OS00YmUxNjAzNTdiMzUiLCJ1c2VybmFtZSI6ImRldmluIiwiaWF0IjoxNzU4MTUyNDIzLCJleHAiOjE3ODk2ODg0MjN9.kYW2BeFDV0G_Wu1DjTS1l41QsnmlA3Xez8yIuicVcK0"
+}'
 {
-        "email": "x.y@hawks.tech", obviously ur email and password and not this
-        "password": "password123",
-        "browser": "/Applications/Chromium.app/Contents/MacOS/Chromium" -- PATH TO CHROMIUM BINARY
+    "Algebra II Honors": [
+        null,
+        null,
+        null,
+        null
+    ],
+    "Biology II Honors": [
+        92.0500030517578,
+        null,
+        null,
+        null
+    ],
+    "Computer Science Theory": [
+        100.0,
+        null,
+        null,
+        null
+    ],
+    "English 10 Honors": [
+        100.0,
+        null,
+        null,
+        null
+    ],
+    "Health Education 10": [
+        92.5,
+        null,
+        92.5
+    ],
+    "Networking Essentials 10": [
+        99.37999725341795,
+        null,
+        null,
+        null
+    ],
+    "Spanish II CP": [
+        null,
+        null,
+        null,
+        null
+    ],
+    "U.S. Government and Politics CP": [
+        100.0,
+        null,
+        100.0
+    ],
+    "United States History I CP": [
+        100.0,
+        null,
+        null,
+        null
+    ]
 }
-```
-
-```bash
-cd tokengetter
-pnpm i
-echo "DONE!!!"
-```
-
-## RUNNING IT
-
-```bash
-cargo build --release
-./target/release/gradegetter
 ```
 
 # 
-
-#### Function Rundown
-
-| Function                      | funtion description                                                       |
-| ----------------------------- | ------------------------------------------------------------------------- |
-| `fetch_export_form_tokens()`  | Grabs the form tokens/build_id Schoology finna gonna hide                 |
-| `select_grade_period()`       | Picks the grading quarter (change the IDs)                                |
-| `fetch_final_grades_export()` | selects your classes and after pulls that grade HTML after                |
-| `parse_grades_html()`         | Parses the mess of HTML into a usable `HashMap<String, Vec<Option<f32>>>` |
-
-### OUTPUT (ignore my bad social studdies grade i was looking at the damn rust book in class)
-
-```bash
-[devin@gentoo-vm gradegetter]$ curl http://0.0.0.0:3000/grades
-{
-  "Freshmen Seminar": [
-    89.0,
-    93.2,
-    93.0,
-    76.75
-  ],
-  "Spanish I CP": [
-    93.15,
-    80.19,
-    94.86,
-    91.0
-  ],
-  "Geometry Honors": [
-    95.08,
-    89.56,
-    90.24,
-    80.1
-  ],
-  "World History Honors": [
-    75.8,
-    62.13,
-    82.82,
-    68.75
-  ],
-  "Biology I Honors": [
-    87.41,
-    83.96,
-    93.13,
-    96.01
-  ],
-  "English 9 Honors": [
-    88.0,
-    77.0,
-    88.0,
-    81.0
-  ]
-}
-```
-
-### NOTES
-#### TODO
-1. pt1. I GOTTA  rotate user agents to look more human.
-1. pt2. Document logging feature.
-3. https/tls for api
-4. Any issues? hmu on the issues tab
-
-the fix for the docker file was litterly to update dependencies...well thats the jist of it but yeah im kinda sad i spent 5+ hours debugging this :(
