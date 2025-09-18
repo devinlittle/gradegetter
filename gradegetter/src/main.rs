@@ -1,7 +1,12 @@
-use axum::{Router, response::IntoResponse, routing::get};
+use axum::{
+    Error, Router,
+    extract::State,
+    response::IntoResponse,
+    routing::{get, post},
+};
 use crypto_utils::{decrypt_string, encrypt_string};
 use serde_json::Value;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::{collections::HashMap, str, sync::Arc, time::Duration};
 use tokio::{net::TcpListener, process::Command};
 use tracing::{debug, info, trace};
@@ -102,13 +107,64 @@ async fn main() {
         }
     });
 
-    let app = Router::new().route("/", get(health));
+    let pool_axum = Arc::clone(&pool);
+    let app = Router::new().route("/", get(health)).route(
+        "/userinit",
+        get({
+            let pool_axum = Arc::clone(&pool_axum);
+
+            move || {
+                let pool = Arc::clone(&pool_axum);
+
+                async move { user_token_initalize(pool).await }
+            }
+        }),
+    );
+
     let listener = TcpListener::bind("0.0.0.0:3001").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
 async fn health() -> impl IntoResponse {
     "Alive".to_string()
+}
+
+async fn user_token_initalize(pool: Arc<PgPool>) -> impl IntoResponse {
+    let user = sqlx::query!("SELECT id, encrypted_email, encrypted_password FROM schoology_auth WHERE session_token IS NULL")
+        .fetch_one(&*pool)
+        .await
+        .map_err(|err| {
+            tracing::error!("Database error: {}", err);
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+        });
+
+    let user = match user {
+        Ok(user) => user,
+        Err(_) => return Err(axum::http::StatusCode::UNAUTHORIZED),
+    };
+
+    let (id, email, password) = (user.id, user.encrypted_email, user.encrypted_password);
+
+    let dec_password = decrypt_string(password.as_str());
+    let dec_email = decrypt_string(email.as_str());
+
+    let _ = sqlx::query!(
+        "UPDATE schoology_auth SET session_token = $1 WHERE id = $2",
+        get_token(dec_email.unwrap().as_str(), dec_password.unwrap().as_str())
+            .await
+            .unwrap(),
+        id
+    )
+    .execute(&*pool)
+    .await
+    .map_err(|err| {
+        tracing::info!("Database error: {}", err);
+        axum::http::StatusCode::INTERNAL_SERVER_ERROR
+    });
+
+    info!("user_token_initalize: Updated token for UUID: {}", id);
+
+    Ok("Hi".to_string())
 }
 
 async fn get_token(email: &str, password: &str) -> Result<String, Box<dyn std::error::Error>> {

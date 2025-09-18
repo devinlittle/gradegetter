@@ -10,6 +10,7 @@ pub fn create_routes(pool: PgPool) -> Router {
         .route("/auth/register", post(auth::register_handler))
         .route("/auth/login", post(auth::login_handler))
         .route("/auth/validate", post(auth::validate_token))
+        .route("/auth/forward", post(auth::foward_to_gradegetter))
         .route(
             "/auth/schoology/credentials",
             post(auth::schoology_credentials_handler),

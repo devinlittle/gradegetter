@@ -253,3 +253,43 @@ pub async fn schoology_credentials_handler(
 
     Ok(())
 }
+
+pub async fn foward_to_gradegetter(Json(req): Json<ValidateInput>) -> impl IntoResponse {
+    let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
+    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
+    let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
+    let _uuid_jwt = match jsonwebtoken::decode::<Claims>(&req.token, &decoding_key, &validation)
+        .map(|x| x.claims.sub)
+    {
+        Ok(uuid) => uuid,
+        Err(err) => {
+            let _ = match *err.kind() {
+                jsonwebtoken::errors::ErrorKind::InvalidToken => {
+                    tracing::warn!("InvalidToken");
+                    "Invalid Token"
+                }
+                jsonwebtoken::errors::ErrorKind::InvalidSignature => {
+                    tracing::warn!("InvalidSignature");
+                    "Invalid Signature"
+                }
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                    tracing::warn!("ExpiredSignature");
+                    "Expiered Signature"
+                }
+                _ => {
+                    tracing::warn!("Something really bad happened");
+                    "Token Verifation fail"
+                }
+            };
+            //return (Json(msg.to_string()), axum::http::StatusCode::UNAUTHORIZED);
+            return Err(axum::http::StatusCode::UNAUTHORIZED);
+        }
+    };
+    let client = reqwest::Client::new();
+    let _ = client
+        .request(reqwest::Method::GET, "http://0.0.0.0:3001/userinit")
+        .send()
+        .await
+        .unwrap();
+    Ok(())
+}

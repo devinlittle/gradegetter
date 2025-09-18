@@ -1,36 +1,90 @@
 <script>
+  import { redirect } from "@sveltejs/kit";
   import { invoke } from "@tauri-apps/api/core";
+  import { onMount, onDestroy } from "svelte";
 
-  let name = $state("");
-  let greetMsg = $state("");
+  let LoggedIn = $state(false);
+  let grades = $state({});
+  let token = localStorage.getItem("token");
 
-  async function greet(event) {
+  let load = async () => {
+    if (localStorage.getItem("token").length > 0) {
+      LoggedIn = true;
+    } else {
+      LoggedIn = false;
+    }
+  };
+
+  let fetchGrades = async () => {
+    const response = await fetch("http://10.0.0.139:3000/grades", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token: token }),
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch grades");
+      return;
+    }
+
+    const newGrades = await response.json();
+
+    for (const subject in newGrades) {
+      grades[subject] = newGrades[subject];
+    }
+
+    for (const subject in grades) {
+      if (!(subject in newGrades)) {
+        delete grades[subject];
+      }
+    }
+  };
+
+  onMount(() => {
+    load();
+    fetchGrades();
+
+    const interval = setInterval(() => {
+      fetchGrades();
+    }, 5000); // every 5 seconds
+
+    onDestroy(() => {
+      clearInterval(interval);
+    });
+  });
+
+  async function logOut(event) {
     event.preventDefault();
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    greetMsg = await invoke("greet", { name });
+    localStorage.removeItem("token");
+    LoggedIn = false;
   }
 </script>
 
-<main class="container">
-  <h1><a href="/register" target="_blank">Welcome to Tauri + Svelte</a></h1>
+{#if LoggedIn}
+  <h1><button onclick={logOut}>LogOut</button></h1>
 
-  <div class="row">
-    <img src="/vite.svg" class="logo vite" alt="Vite Logo" />
-    <a href="https://tauri.app" target="_blank">
-      <img src="/tauri.svg" class="logo tauri" alt="Tauri Logo" />
-    </a>
-    <a href="https://svelte.dev" target="_blank">
-      <img src="/svelte.svg" class="logo svelte-kit" alt="SvelteKit Logo" />
-    </a>
-  </div>
-  <p>Click on the Tauri, Vite, and SvelteKit logos to learn more.</p>
+  {#if Object.keys(grades).length === 0}
+    <p>Loading...</p>
+  {:else}
+    {#each Object.entries(grades) as [subject, scores]}
+      <h2>{subject}</h2>
+      <ul>
+        {#each scores as score, i}
+          <li>Q{i + 1}: {score !== null ? score.toFixed(2) : "N/A"}</li>
+        {/each}
+      </ul>
+    {/each}
+  {/if}
+{:else}
+  <p>Logged Out...</p>
 
-  <form class="row" onsubmit={greet}>
-    <input id="greet-input" placeholder="Enter a name..." bind:value={name} />
-    <button type="submit">Greet</button>
-  </form>
-  <p>{greetMsg}</p>
-</main>
+  <main class="container">
+    <h1><a href="/register">Register</a></h1>
+    <h1><a href="/login">Login</a></h1>
+  </main>
+{/if}
 
 <style>
   .logo.vite:hover {
