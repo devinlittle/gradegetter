@@ -2,10 +2,12 @@
   import { redirect } from "@sveltejs/kit";
   import { invoke } from "@tauri-apps/api/core";
   import { onMount, onDestroy } from "svelte";
+  import { fetch } from "@tauri-apps/plugin-http";
 
   let LoggedIn = $state(false);
   let grades = $state({});
   let token = localStorage.getItem("token");
+  let apiUrl = "home.devinlittle.net";
 
   let load = async () => {
     if (localStorage.getItem("token").length > 0) {
@@ -16,7 +18,7 @@
   };
 
   let fetchGrades = async () => {
-    const response = await fetch("http://home.devinlittle.net:3000/grades", {
+    const response = await fetch(`http://${apiUrl}:3000/grades`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -26,7 +28,7 @@
 
     if (!response.ok) {
       console.error("Failed to fetch grades");
-      return;
+      //     throw new Error(`Schoology registration failed: ${msg}`);
     }
 
     const newGrades = await response.json();

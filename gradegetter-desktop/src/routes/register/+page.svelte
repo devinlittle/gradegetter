@@ -1,11 +1,13 @@
 <script>
   import { goto } from "$app/navigation";
+  import { fetch } from "@tauri-apps/plugin-http";
 
   let username = $state("");
   let password = $state("");
   let schoology_email = $state("");
   let schoology_password = $state("");
   let error = $state("");
+  let apiUrl = "home.devinlittle.net";
 
   async function handleRegister(event) {
     event.preventDefault();
@@ -13,14 +15,11 @@
 
     try {
       // 1. Register the user
-      const regRes = await fetch(
-        "http://home.devinlittle.net:3000/auth/register",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
-        },
-      );
+      const regRes = await fetch(`http://${apiUrl}:3000/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
       if (!regRes.ok) {
         const msg = await regRes.json();
@@ -28,14 +27,11 @@
       }
 
       // 2. Login to get the token
-      const loginRes = await fetch(
-        "http://home.devinlittle.net:3000/auth/login",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
-        },
-      );
+      const loginRes = await fetch(`http://${apiUrl}:3000/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
       if (!loginRes.ok) {
         const msg = await loginRes.text();
@@ -47,7 +43,7 @@
 
       // 3. Register Schoology info
       const schoologyRes = await fetch(
-        "http://home.devinlittle.net:3000/auth/schoology/credentials",
+        `http://${apiUrl}:3000/auth/schoology/credentials`,
         {
           method: "POST",
           headers: {
@@ -68,18 +64,15 @@
       }
 
       // 4. Run forward req
-      const forwardRes = await fetch(
-        "http://home.devinlittle.net:3000/auth/forward",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            token,
-          }),
+      const forwardRes = await fetch(`http://${apiUrl}:3000/auth/forward`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          token,
+        }),
+      });
 
       if (!forwardRes.ok) {
         // const msg = await forwardRes.text();
