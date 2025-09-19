@@ -287,7 +287,7 @@ pub async fn foward_to_gradegetter(Json(req): Json<ValidateInput>) -> impl IntoR
     };
     let client = reqwest::Client::new();
     let _ = client
-        .request(reqwest::Method::GET, "http://0.0.0.0:3001/userinit")
+        .request(reqwest::Method::GET, "http://gradegetter:3001/userinit")
         .send()
         .await
         .unwrap();

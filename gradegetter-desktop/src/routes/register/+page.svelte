@@ -13,11 +13,14 @@
 
     try {
       // 1. Register the user
-      const regRes = await fetch("http://10.0.0.139:3000/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      const regRes = await fetch(
+        "http://home.devinlittle.net:3000/auth/register",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        },
+      );
 
       if (!regRes.ok) {
         const msg = await regRes.json();
@@ -25,11 +28,14 @@
       }
 
       // 2. Login to get the token
-      const loginRes = await fetch("http://10.0.0.139:3000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      const loginRes = await fetch(
+        "http://home.devinlittle.net:3000/auth/login",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        },
+      );
 
       if (!loginRes.ok) {
         const msg = await loginRes.text();
@@ -41,7 +47,7 @@
 
       // 3. Register Schoology info
       const schoologyRes = await fetch(
-        "http://10.0.0.139:3000/auth/schoology/credentials",
+        "http://home.devinlittle.net:3000/auth/schoology/credentials",
         {
           method: "POST",
           headers: {
@@ -62,15 +68,18 @@
       }
 
       // 4. Run forward req
-      const forwardRes = await fetch("http://10.0.0.139:3000/auth/forward", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const forwardRes = await fetch(
+        "http://home.devinlittle.net:3000/auth/forward",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            token,
+          }),
         },
-        body: JSON.stringify({
-          token,
-        }),
-      });
+      );
 
       if (!forwardRes.ok) {
         // const msg = await forwardRes.text();

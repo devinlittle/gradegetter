@@ -66,4 +66,5 @@ RUN chown -R appuser:appuser /app
 USER appuser
 WORKDIR /app/gradegetter
 
+EXPOSE 3001
 CMD ["./gradegetter"]

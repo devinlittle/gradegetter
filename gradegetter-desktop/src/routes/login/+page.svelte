@@ -8,11 +8,14 @@
     const username = form.get("username");
     const password = form.get("password");
 
-    const response = await fetch("http://10.0.0.139:3000/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
+    const response = await fetch(
+      "http://home.devinlittle.net:3000/auth/login",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      },
+    );
 
     if (!response.ok) {
       console.error("Login failed");

@@ -16,7 +16,7 @@
   };
 
   let fetchGrades = async () => {
-    const response = await fetch("http://10.0.0.139:3000/grades", {
+    const response = await fetch("http://home.devinlittle.net:3000/grades", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
