@@ -1,5 +1,5 @@
 <script>
-  import { goto } from "$app/navigation"; // Used for client-side navigation
+  import { goto } from "$app/navigation";
   import { fetch } from "@tauri-apps/plugin-http";
 
   async function register(event) {

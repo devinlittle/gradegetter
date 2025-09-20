@@ -455,6 +455,7 @@ fn parse_grades_html(html: String) -> Result<GradesHashMap, Box<dyn std::error::
                 if grade_count >= 4 {
                     continue;
                 }
+
                 let grade_text = grade_cell
                     .text()
                     .collect::<String>()

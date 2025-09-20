@@ -1,6 +1,5 @@
 <script>
   import { redirect } from "@sveltejs/kit";
-  import { invoke } from "@tauri-apps/api/core";
   import { onMount, onDestroy } from "svelte";
   import { fetch } from "@tauri-apps/plugin-http";
 

@@ -2,7 +2,7 @@ use axum::{Json, extract::State};
 use jsonwebtoken::{DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sqlx::{PgPool, types::JsonRawValue};
+use sqlx::PgPool;
 use time::OffsetDateTime;
 use tracing::info;
 
