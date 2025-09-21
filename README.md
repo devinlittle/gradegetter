@@ -6,15 +6,15 @@ A Rust powered monorepo to scrape Schoology grades, encrypt important informatio
 
 ## Features
 
-- 📚 **Real-time Grade Scraping**: Fetches Schoology grades every 10 seconds.
+- **Real-time Grade Scraping**: Fetches Schoology grades every 10 seconds.
 
-- 🔒 **AES Encryption**: Secures session tokens, emails, and passwords in PostgreSQL.
+- **AES Encryption**: Secures session tokens, emails, and passwords in PostgreSQL.
 
-- 👥 **Multi-user Support**: Scales from 10 to 100 users. 
+- **Multi-user Support**: Scales from 10 to 100 users. 
 
-- 🛠️ **Homelab Ready**: Deploys on k3s with Traefik, WireGuard, and Loki/Grafana logs.
+- **Homelab Ready**: Deploys on k3s with Traefik, WireGuard, and Loki/Grafana logs.
 
-- 🗂️ **Monorepo Power**: Root orchestrates: `backend`, `gradegetter`, `crypto_utils`, and `tokengetter` crates.
+- **Monorepo Power**: Root orchestrates: `backend`, `gradegetter`, `crypto_utils`, and `tokengetter` crates.
 
 #### Each Progam:
 

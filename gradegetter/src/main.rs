@@ -356,7 +356,7 @@ async fn fetch_class_ids(
 
     let re_class_id = regex::Regex::new(r#"id="s-js-gradebook-course-(\d+)"#).unwrap();
     for (_, [id]) in re_class_id.captures_iter(&body).map(|c| c.extract()) {
-        trace!("{id}");
+        trace!("class ids: {id}");
         hashmap.insert(format!("courses[{}][selected]", id), "1".to_string());
     }
     Ok(hashmap)
