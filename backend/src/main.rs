@@ -1,9 +1,10 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use axum::{Router, http::HeaderValue};
+use axum::Router;
 use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::{Any, CorsLayer};
-use tracing::{Level, info};
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 
 mod routes;
 mod util;
@@ -21,7 +22,7 @@ async fn main() {
         .allow_headers(Any);
 
     tracing_subscriber::fmt()
-        .with_max_level(Level::TRACE)
+        .with_env_filter(EnvFilter::from_default_env())
         .init();
 
     let database_string = dotenvy::var("DATABASE_URL").expect("DATABASE_URL not found");

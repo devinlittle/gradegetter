@@ -32,6 +32,7 @@ USER appuser
 
 COPY --from=build /bin/server /bin/
 
+ENV RUST_LOG=info
 EXPOSE 3000
 
 CMD ["/bin/server"]
