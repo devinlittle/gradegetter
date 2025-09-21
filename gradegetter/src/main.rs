@@ -1,14 +1,17 @@
-use axum::{
-    Error, Router,
-    extract::State,
-    response::IntoResponse,
-    routing::{get, post},
-};
+use axum::{Router, response::IntoResponse, routing::get};
 use crypto_utils::{decrypt_string, encrypt_string};
 use serde_json::Value;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::{collections::HashMap, str, sync::Arc, time::Duration};
-use tokio::{net::TcpListener, process::Command};
+use tokio::{
+    net::TcpListener,
+    process::Command,
+    signal::{
+        self,
+        unix::{SignalKind, signal},
+    },
+};
+
 use tracing::{debug, info, trace};
 use tracing_subscriber::EnvFilter;
 
@@ -122,7 +125,29 @@ async fn main() {
     );
 
     let listener = TcpListener::bind("0.0.0.0:3001").await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = signal::ctrl_c();
+
+    let terminte = async {
+        signal(SignalKind::terminate())
+            .expect("failed to install the SIGTERM handler 🥲")
+            .recv()
+            .await;
+    };
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminte => {},
+
+    }
+
+    info!("Signal recvived now starting graceful shutdown");
 }
 
 async fn health() -> impl IntoResponse {
