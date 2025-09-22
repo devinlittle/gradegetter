@@ -40,5 +40,5 @@
     Password
     <input name="password" type="password" required />
   </label>
-  <button type="submit">Register</button>
+  <button type="submit">Login</button>
 </form>
