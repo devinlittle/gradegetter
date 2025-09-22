@@ -1,4 +1,7 @@
-use axum::{Router, routing::post};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use sqlx::PgPool;
 
 pub mod auth;
@@ -16,6 +19,6 @@ pub fn create_routes(pool: PgPool) -> Router {
             post(auth::schoology_credentials_handler),
         )
         // Grade Route
-        .route("/grades", post(grades::grades_handler))
+        .route("/grades", get(grades::grades_handler))
         .with_state(pool)
 }

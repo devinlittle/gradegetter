@@ -1,4 +1,8 @@
 use axum::{Json, extract::State};
+use axum_extra::{
+    TypedHeader,
+    headers::{Authorization, authorization::Bearer},
+};
 use jsonwebtoken::{DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -40,19 +44,14 @@ mod jwt_numeric_date {
     }
 }
 
-#[derive(Deserialize)]
-pub struct GradesPayload {
-    token: String,
-}
-
 pub async fn grades_handler(
     State(pool): State<PgPool>,
-    Json(req): Json<GradesPayload>,
+    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
 ) -> Result<Json<Value>, axum::http::StatusCode> {
     let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
     let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
     let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
-    let uuid = match jsonwebtoken::decode::<Claims>(&req.token, &decoding_key, &validation)
+    let uuid = match jsonwebtoken::decode::<Claims>(bearer.token(), &decoding_key, &validation)
         .map(|x| x.claims.sub)
     {
         Ok(uuid) => uuid,

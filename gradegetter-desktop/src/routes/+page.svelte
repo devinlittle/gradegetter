@@ -18,11 +18,11 @@
 
   let fetchGrades = async () => {
     const response = await fetch(`http://${apiUrl}:3000/grades`, {
-      method: "POST",
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ token: token }),
     });
 
     if (!response.ok) {
