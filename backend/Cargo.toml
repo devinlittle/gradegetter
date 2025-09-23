@@ -6,12 +6,14 @@ edition = "2024"
 [dependencies]
 tokio.workspace = true
 axum.workspace = true
+axum-extra = {workspace = true, features = ["typed-header"]}
+axum-server = {workspace = true}
 hyper.workspace = true
 hyper-tls.workspace = true
 tower-http.workspace = true
 tower.workspace = true
-axum-extra = {workspace = true, features = ["typed-header"]}
-
+rustls = {workspace = true, features = ["ring"]}
+ring.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"]  }

@@ -8,10 +8,13 @@ members = [
 tokio = {version = "1", features = ["full"]}
 axum = {version = "0.8.4"}
 axum-extra = "0.10.1"
+axum-server = {version = "0.7.2", features = ["tls-rustls"]}
 hyper = {version = "1.7.0"}
 hyper-tls = "0.6.0"
 tower-http = { version = "0.6.6", features = ["cors"]}
 tower = "0.5.2"
+rustls = { version = "0.23.32", features = ["ring"] }
+ring = "0.17.14"
 reqwest = {version = "0.12"}
 serde = {version = "1", features = ["derive"]}
 serde_json = {version = "1"}
