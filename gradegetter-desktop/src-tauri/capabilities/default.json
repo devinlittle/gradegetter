@@ -16,7 +16,7 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "http://*:3000"
+          "url": "https://*:3000"
         }
       ],
       "deny": [

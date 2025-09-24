@@ -7,7 +7,7 @@
   let schoology_email = $state("");
   let schoology_password = $state("");
   let error = $state("");
-  let apiUrl = "home.devinlittle.net";
+  let apiUrl = "api.devinlittle.net";
 
   async function handleRegister(event) {
     event.preventDefault();
@@ -15,7 +15,7 @@
 
     try {
       // 1. Register the user
-      const regRes = await fetch(`http://${apiUrl}:3000/auth/register`, {
+      const regRes = await fetch(`https://${apiUrl}:3000/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -27,7 +27,7 @@
       }
 
       // 2. Login to get the token
-      const loginRes = await fetch(`http://${apiUrl}:3000/auth/login`, {
+      const loginRes = await fetch(`https://${apiUrl}:3000/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -43,7 +43,7 @@
 
       // 3. Register Schoology info
       const schoologyRes = await fetch(
-        `http://${apiUrl}:3000/auth/schoology/credentials`,
+        `https://${apiUrl}:3000/auth/schoology/credentials`,
         {
           method: "POST",
           headers: {
@@ -64,7 +64,7 @@
       }
 
       // 4. Run forward req
-      const forwardRes = await fetch(`http://${apiUrl}:3000/auth/forward`, {
+      const forwardRes = await fetch(`https://${apiUrl}:3000/auth/forward`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

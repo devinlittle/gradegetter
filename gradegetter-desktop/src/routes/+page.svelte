@@ -6,7 +6,7 @@
   let LoggedIn = $state(false);
   let grades = $state({});
   let token = localStorage.getItem("token");
-  let apiUrl = "home.devinlittle.net";
+  let apiUrl = "api.devinlittle.net";
 
   let load = async () => {
     if (localStorage.getItem("token").length > 0) {
@@ -17,7 +17,7 @@
   };
 
   let fetchGrades = async () => {
-    const response = await fetch(`http://${apiUrl}:3000/grades`, {
+    const response = await fetch(`https://${apiUrl}:3000/grades`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

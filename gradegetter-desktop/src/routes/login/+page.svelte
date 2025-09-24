@@ -8,9 +8,9 @@
     const form = new FormData(event.target);
     const username = form.get("username");
     const password = form.get("password");
-    let apiUrl = "home.devinlittle.net";
+    let apiUrl = "api.devinlittle.net";
 
-    const response = await fetch(`http://${apiUrl}:3000/auth/login`, {
+    const response = await fetch(`https://${apiUrl}:3000/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
