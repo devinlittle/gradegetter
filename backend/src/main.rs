@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use axum::Router;
 use axum_server::tls_rustls::RustlsConfig;
+use hyper::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use sqlx::postgres::PgPoolOptions;
 use tokio::signal::{
     self,
@@ -27,7 +28,7 @@ async fn main() {
             axum::http::Method::POST,
             axum::http::Method::OPTIONS,
         ])
-        .allow_headers(Any);
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
 
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
