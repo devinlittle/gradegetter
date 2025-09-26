@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use sqlx::PgPool;
 
@@ -12,6 +12,7 @@ pub fn create_routes(pool: PgPool) -> Router {
         // Auth Routes
         .route("/auth/register", post(auth::register_handler))
         .route("/auth/login", post(auth::login_handler))
+        .route("/auth/delete", delete(auth::delete_handler))
         .route("/auth/validate", post(auth::validate_token))
         .route("/auth/forward", post(auth::foward_to_gradegetter))
         .route(

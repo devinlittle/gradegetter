@@ -1,4 +1,8 @@
-use axum::{Json, extract::State, response::IntoResponse};
+use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use axum_extra::{
+    TypedHeader,
+    headers::{Authorization, authorization::Bearer},
+};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool, types::uuid};
@@ -18,7 +22,6 @@ pub async fn register_handler(
     Json(req): Json<RegisterInput>,
 ) -> Result<Json<String>, axum::http::StatusCode> {
     let password_hash: String = hash(&req.password);
-    info!(password_hash);
     sqlx::query("INSERT INTO service_auth (username, password_hash) VALUES ($1, $2)")
         .bind(&req.username)
         .bind(&password_hash)
@@ -140,50 +143,15 @@ pub async fn login_handler(
         )
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
+        info!("User {} logged in sucessfully", user.username);
         Ok(Json(token))
     } else {
+        info!(
+            "User failed to login: username: {0}, id: {1}",
+            user.username, user.id
+        );
         Err(axum::http::StatusCode::UNAUTHORIZED)
     }
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ValidateInput {
-    token: String,
-}
-
-pub async fn validate_token(Json(req): Json<ValidateInput>) -> impl IntoResponse {
-    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
-
-    let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
-    let _token_data = match decode::<Claims>(
-        req.token.as_str(),
-        &DecodingKey::from_secret(jwt_secret.as_ref()),
-        &validation,
-    ) {
-        Ok(c) => c,
-        Err(err) => {
-            let msg = match *err.kind() {
-                jsonwebtoken::errors::ErrorKind::InvalidToken => {
-                    tracing::warn!("InvalidToken");
-                    "Invalid Token"
-                }
-                jsonwebtoken::errors::ErrorKind::InvalidSignature => {
-                    tracing::warn!("InvalidSignature");
-                    "Invalid Signature"
-                }
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                    tracing::warn!("ExpiredSignature");
-                    "Expiered Signature"
-                }
-                _ => {
-                    tracing::warn!("Something really bad happened");
-                    "Token Verifation fail"
-                }
-            };
-            return (axum::http::StatusCode::UNAUTHORIZED, Json(msg.to_string()));
-        }
-    };
-    (axum::http::StatusCode::OK, Json("Good Token!".to_string()))
 }
 
 #[derive(Deserialize)]
@@ -254,6 +222,46 @@ pub async fn schoology_credentials_handler(
     Ok(())
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ValidateInput {
+    token: String,
+}
+
+pub async fn validate_token(Json(req): Json<ValidateInput>) -> impl IntoResponse {
+    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
+
+    let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
+    let _token_data = match decode::<Claims>(
+        req.token.as_str(),
+        &DecodingKey::from_secret(jwt_secret.as_ref()),
+        &validation,
+    ) {
+        Ok(c) => c,
+        Err(err) => {
+            let msg = match *err.kind() {
+                jsonwebtoken::errors::ErrorKind::InvalidToken => {
+                    tracing::warn!("InvalidToken");
+                    "Invalid Token"
+                }
+                jsonwebtoken::errors::ErrorKind::InvalidSignature => {
+                    tracing::warn!("InvalidSignature");
+                    "Invalid Signature"
+                }
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                    tracing::warn!("ExpiredSignature");
+                    "Expiered Signature"
+                }
+                _ => {
+                    tracing::warn!("Something really bad happened");
+                    "Token Verifation fail"
+                }
+            };
+            return (axum::http::StatusCode::UNAUTHORIZED, Json(msg.to_string()));
+        }
+    };
+    (axum::http::StatusCode::OK, Json("Good Token!".to_string()))
+}
+
 pub async fn foward_to_gradegetter(Json(req): Json<ValidateInput>) -> impl IntoResponse {
     let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
     let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
@@ -292,4 +300,59 @@ pub async fn foward_to_gradegetter(Json(req): Json<ValidateInput>) -> impl IntoR
         .await
         .unwrap();
     Ok(())
+}
+
+pub async fn delete_handler(
+    State(pool): State<PgPool>,
+    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
+) -> impl IntoResponse {
+    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
+
+    let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
+    let uuid = match decode::<Claims>(
+        bearer.token(),
+        &DecodingKey::from_secret(jwt_secret.as_ref()),
+        &validation,
+    ) {
+        Ok(c) => c,
+        Err(err) => {
+            let _ = match *err.kind() {
+                jsonwebtoken::errors::ErrorKind::InvalidToken => {
+                    tracing::warn!("InvalidToken");
+                    "Invalid Token"
+                }
+                jsonwebtoken::errors::ErrorKind::InvalidSignature => {
+                    tracing::warn!("InvalidSignature");
+                    "Invalid Signature"
+                }
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                    tracing::warn!("ExpiredSignature");
+                    "Expiered Signature"
+                }
+                _ => {
+                    tracing::warn!("Something really bad happened");
+                    "Token Verifation fail"
+                }
+            };
+            return axum::http::StatusCode::UNAUTHORIZED;
+        }
+    }
+    .claims
+    .sub;
+
+    let uuid = uuid::Uuid::parse_str(uuid.as_str())
+        .map_err(|_| axum::http::StatusCode::BAD_REQUEST)
+        .expect("uuid parsing failed");
+
+    match sqlx::query!("DELETE FROM service_auth WHERE id = $1", uuid)
+        .execute(&pool)
+        .await
+    {
+        Ok(result) if result.rows_affected() > 0 => axum::http::StatusCode::OK,
+        Ok(_) => StatusCode::NOT_FOUND,
+        Err(err) => {
+            error!("database error: {:?}", err);
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
 }
