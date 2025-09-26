@@ -445,13 +445,13 @@ type GradesHashMap = HashMap<String, Vec<Option<f32>>>;
 
 fn parse_grades_html(html: String) -> Result<GradesHashMap, Box<dyn std::error::Error>> {
     let document = scraper::Html::parse_document(html.as_str());
-    let grade_selector =
-        scraper::Selector::parse("td.grade, td.grade.final-grade, td.grade.no-grade").unwrap();
-    let row_selector = scraper::Selector::parse("tr").unwrap();
+    let grade_selector = scraper::Selector::parse("td.grade, td.grade.no-grade")
+        .expect("could not parse grade_selector");
+
+    let row_selector = scraper::Selector::parse("tr").expect("could not parse row_selector");
 
     let mut course_grades: GradesHashMap = HashMap::new();
     let mut current_course: Option<String> = None;
-    let mut grade_count = 0;
 
     for row in document.select(&row_selector) {
         if row.value().has_class(
@@ -470,16 +470,12 @@ fn parse_grades_html(html: String) -> Result<GradesHashMap, Box<dyn std::error::
 
             current_course = Some(cleaned_title_text.clone());
             course_grades.insert(cleaned_title_text, Vec::new());
-            grade_count = 0;
         } else if let Some(course) = &current_course {
-            if grade_count >= 4 {
-                continue;
-            }
-
             for grade_cell in row.select(&grade_selector) {
-                if grade_count >= 4 {
+                if Some("grade final-grade") == grade_cell.attr("class") {
+                    // dont add "final-grade" in the course_grades hashmap
                     continue;
-                }
+                };
 
                 let grade_text = grade_cell
                     .text()
@@ -488,7 +484,6 @@ fn parse_grades_html(html: String) -> Result<GradesHashMap, Box<dyn std::error::
                     .replace("%", "");
                 let grade = grade_text.parse::<f32>().ok();
                 course_grades.get_mut(course).unwrap().push(grade);
-                grade_count += 1;
             }
         }
     }

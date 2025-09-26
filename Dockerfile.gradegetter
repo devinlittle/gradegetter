@@ -17,7 +17,7 @@ FROM rust:${RUST_VERSION}-alpine AS rust-build
 ARG APP_NAME
 WORKDIR /app
 COPY . .
-RUN apk add --no-cache clang lld musl-dev git perl make
+RUN apk add --no-cache clang lld musl-dev git perl make linux-headers
 ENV SQLX_OFFLINE=true
 RUN --mount=type=cache,target=/app/target/ \
     --mount=type=cache,target=/usr/local/cargo/git/db \
