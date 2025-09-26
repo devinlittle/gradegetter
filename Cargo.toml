@@ -1,8 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-"backend/", "crypto_utils", "gradegetter/", "gradegetter-desktop/src-tauri"
-]
+"backend/", "crypto_utils", "gradegetter/", "gradegetter-desktop/src-tauri"]
 
 [workspace.dependencies]
 tokio = {version = "1", features = ["full"]}

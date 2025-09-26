@@ -18,7 +18,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src https://api.devinlittle.net:3000 ws://home.devinlittle.net:3000"
+      "csp": "default-src 'self'; connect-src https://api.devinlittle.net:3000 ws://api.devinlittle.net:3000"
     }
   },
   "bundle": {

@@ -16,7 +16,7 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "https://*:3000"
+          "url": "https://api.devinlittle.net:3000"
         }
       ],
       "deny": [
