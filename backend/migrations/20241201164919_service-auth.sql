@@ -1,4 +1,3 @@
--- Add migration script here
 CREATE TABLE service_auth (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,      -- Unique user identifier
     username VARCHAR(50) NOT NULL UNIQUE,               -- Username for login
