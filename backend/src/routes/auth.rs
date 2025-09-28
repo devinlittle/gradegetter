@@ -147,7 +147,7 @@ pub async fn login_handler(
         Ok(Json(token))
     } else {
         info!(
-            "User failed to login: username: {0}, id: {1}",
+            r#"User failed to login; username: "{0}", id: "{1}""#,
             user.username, user.id
         );
         Err(axum::http::StatusCode::UNAUTHORIZED)
