@@ -17,6 +17,10 @@ mod util;
 
 #[tokio::main]
 async fn main() {
+   tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::from_default_env())
+        .init();
+   
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("failed to install rustls cryptoi provider");
@@ -30,10 +34,6 @@ async fn main() {
             axum::http::Method::OPTIONS,
         ])
         .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
-
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
 
     let database_string = dotenvy::var("DATABASE_URL").expect("DATABASE_URL not found");
 

@@ -309,7 +309,7 @@ pub async fn delete_handler(
     let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
 
     let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
-    let uuid = match decode::<Claims>(
+    let token = match decode::<Claims>(
         bearer.token(),
         &DecodingKey::from_secret(jwt_secret.as_ref()),
         &validation,
@@ -337,10 +337,9 @@ pub async fn delete_handler(
             return axum::http::StatusCode::UNAUTHORIZED;
         }
     }
-    .claims
-    .sub;
+    .claims;
 
-    let uuid = uuid::Uuid::parse_str(uuid.as_str())
+    let uuid = uuid::Uuid::parse_str(token.sub.as_str())
         .map_err(|_| axum::http::StatusCode::BAD_REQUEST)
         .expect("uuid parsing failed");
 
@@ -348,7 +347,10 @@ pub async fn delete_handler(
         .execute(&pool)
         .await
     {
-        Ok(result) if result.rows_affected() > 0 => axum::http::StatusCode::OK,
+        Ok(result) if result.rows_affected() > 0 => {
+            info!("deleted user: {}", token.username);
+            axum::http::StatusCode::OK
+        }
         Ok(_) => StatusCode::NOT_FOUND,
         Err(err) => {
             error!("database error: {:?}", err);
