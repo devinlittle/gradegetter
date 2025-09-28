@@ -143,7 +143,7 @@ pub async fn login_handler(
         )
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        info!("User {} logged in sucessfully", user.username);
+        info!(r#"User "{}" logged in sucessfully"#, user.username);
         Ok(Json(token))
     } else {
         info!(

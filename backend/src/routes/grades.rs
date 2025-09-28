@@ -78,10 +78,11 @@ pub async fn grades_handler(
             return Err(axum::http::StatusCode::UNAUTHORIZED);
         }
     };
-    info!("Giving Grades to: {:?}", uuid);
 
     let uuid =
         uuid::Uuid::parse_str(uuid.as_str()).map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
+
+    info!("Giving Grades to: {:?}", uuid);
 
     let grades_row = sqlx::query!("SELECT grades FROM grades WHERE id = $1", uuid)
         .fetch_optional(&pool)
