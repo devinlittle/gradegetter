@@ -10,7 +10,7 @@ use sqlx::PgPool;
 use time::OffsetDateTime;
 use tracing::info;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 struct Claims {
     sub: String,
     username: String,

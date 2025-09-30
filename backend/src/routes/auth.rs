@@ -38,7 +38,7 @@ pub struct LoginInput {
     password: String,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 struct Claims {
     sub: String,
     username: String,

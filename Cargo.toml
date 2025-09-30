@@ -21,7 +21,7 @@ sha2 = {version = "0.10.9"}
 sqlx = {version = "0.8.6"}
 uuid = {version = "1.18.1", features = ["v4", "serde"]}
 time = "0.3.44"
-jsonwebtoken = "10.0.0"
+jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 tracing = "0.1.41"
 tracing-subscriber = {version = "0.3.20", features = ["env-filter"] }
 dotenvy = "0.15.7"
