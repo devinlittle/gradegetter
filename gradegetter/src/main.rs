@@ -172,12 +172,13 @@ async fn user_token_initalize(pool: Arc<PgPool>) -> impl IntoResponse {
 
     let dec_password = decrypt_string(password.as_str());
     let dec_email = decrypt_string(email.as_str());
+    let token = get_token(dec_email.unwrap().as_str(), dec_password.unwrap().as_str())
+        .await
+        .unwrap();
 
     let _ = sqlx::query!(
         "UPDATE schoology_auth SET session_token = $1 WHERE id = $2",
-        get_token(dec_email.unwrap().as_str(), dec_password.unwrap().as_str())
-            .await
-            .unwrap(),
+        token,
         id
     )
     .execute(&*pool)
@@ -188,6 +189,21 @@ async fn user_token_initalize(pool: Arc<PgPool>) -> impl IntoResponse {
     });
 
     info!("user_token_initalize: Updated token for UUID: {}", id);
+
+    let _ = sqlx::query!("INSERT INTO grades (id, grades) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET grades = EXCLUDED.grades", 
+        id,
+        fetch_grades(decrypt_string(token.as_str()).expect("Decrypting Token String Failed"))
+            .await
+            .unwrap()
+        )
+        .execute(&*pool)
+        .await
+        .map_err(|err| {
+            tracing::error!("Database error: {}", err);
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+        });
+
+    info!("user_token_initalize: Updated grades for UUID: {}", id);
 
     Ok("Hi".to_string())
 }
