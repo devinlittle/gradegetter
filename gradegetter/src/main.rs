@@ -190,7 +190,7 @@ async fn user_token_initalize(pool: Arc<PgPool>) -> impl IntoResponse {
 
     info!("user_token_initalize: Updated token for UUID: {}", id);
 
-    let _ = sqlx::query!("INSERT INTO grades (id, grades) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET grades = EXCLUDED.grades", 
+    let _ = sqlx::query!("INSERT INTO grades (id, grades) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET grades = EXCLUDED.grades",
         id,
         fetch_grades(decrypt_string(token.as_str()).expect("Decrypting Token String Failed"))
             .await
