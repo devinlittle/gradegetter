@@ -24,6 +24,7 @@ time = "0.3.44"
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 tracing = "0.1.41"
 tracing-subscriber = {version = "0.3.20", features = ["env-filter"] }
+anyhow = "1.0"
 dotenvy = "0.15.7"
 constant_time_eq = "0.4.2"
 regex = "1"

@@ -18,6 +18,7 @@ sqlx = { workspace = true, features = [
   "uuid"]}
 dotenvy.workspace = true
 crypto_utils.workspace = true
+anyhow.workspace = true
 
 axum.workspace = true 
 tracing.workspace = true

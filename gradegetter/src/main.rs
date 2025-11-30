@@ -87,21 +87,33 @@ async fn main() {
             {
                 for user in users {
                     if let (id, Some(token)) = (user.id, user.session_token) {
-                        let _ = sqlx::query!(
+                        match fetch_grades(
+                            decrypt_string(token.as_str()).expect("Decrypting token string failed"),
+                        )
+                        .await
+                        {
+                            Ok(grades_json) => {
+                                let _ = sqlx::query!(
                                 "INSERT INTO grades (id, grades) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET grades = EXCLUDED.grades",
-                                id,
-                                fetch_grades(
-                                    decrypt_string(token.as_str()).expect("Decrypting Token String Failed")
+                                id, grades_json
                                 )
+                                .execute(&*pool_grades)
                                 .await
-                                .unwrap()
-                            )
-                            .execute(&*pool_grades)
-                            .await
-                            .map_err(|err| {
-                                tracing::error!("Database error: {}", err);
-                                axum::http::StatusCode::INTERNAL_SERVER_ERROR
-                            });
+                                .map_err(|err| {
+                                    tracing::error!("Database error: {}", err);
+                                    axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                                });
+                            }
+                            Err(e) => {
+                                let error_msg = e.to_string();
+
+                                tracing::warn!(
+                                    "Believe to be rate limited :(((( ! Sleeping for 10 seconds..."
+                                );
+                                tokio::time::sleep(Duration::from_secs(10)).await;
+                                tracing::error!("Failed to fetch grades for {}: {}", id, error_msg);
+                            }
+                        }
                         info!("Updated grades for UUID: {}", id);
                     }
                 }
@@ -208,7 +220,7 @@ async fn user_token_initalize(pool: Arc<PgPool>) -> impl IntoResponse {
     Ok("Hi".to_string())
 }
 
-async fn get_token(email: &str, password: &str) -> Result<String, Box<dyn std::error::Error>> {
+async fn get_token(email: &str, password: &str) -> Result<String, anyhow::Error> {
     let executable =
         dotenvy::var("PUPPETEER_EXECUTABLE_PATH").expect("PUPPETEER_EXECUTABLE_PATH not found");
     let output = Command::new("node")
@@ -224,7 +236,7 @@ async fn get_token(email: &str, password: &str) -> Result<String, Box<dyn std::e
     ))
 }
 
-async fn fetch_grades(token: String) -> Result<Value, Box<dyn std::error::Error>> {
+async fn fetch_grades(token: String) -> Result<Value, anyhow::Error> {
     let forms = select_grade_period(token.clone()).await?;
     let html = fetch_final_grades_export(
         forms.form_build_id.as_str(),
@@ -244,7 +256,7 @@ struct Forms {
 }
 
 // this function gets the form token and form id
-async fn fetch_export_form_tokens(token: String) -> Result<Forms, Box<dyn std::error::Error>> {
+async fn fetch_export_form_tokens(token: String) -> Result<Forms, anyhow::Error> {
     let mut form_build_id = "N/A".to_string();
     let mut form_token = "N/A".to_string();
 
@@ -292,7 +304,7 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, Box<dyn std::e
 
 // This inputs the form build and form id from the last function (fetch_export_form_tokens)
 // and selects the grading period
-async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error::Error>> {
+async fn select_grade_period(token: String) -> Result<Forms, anyhow::Error> {
     let client = reqwest::Client::builder().build()?;
 
     let mut headers = reqwest::header::HeaderMap::new();
@@ -375,9 +387,7 @@ async fn select_grade_period(token: String) -> Result<Forms, Box<dyn std::error:
     Ok(output)
 }
 
-async fn fetch_class_ids(
-    token: &str,
-) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+async fn fetch_class_ids(token: &str) -> Result<HashMap<String, String>, anyhow::Error> {
     let client = reqwest::Client::builder().build()?;
 
     let mut headers = reqwest::header::HeaderMap::new();
@@ -408,7 +418,7 @@ async fn fetch_final_grades_export(
     form_build_id: &str,
     form_token: &str,
     token: String,
-) -> Result<String, Box<dyn std::error::Error>> {
+) -> Result<String, anyhow::Error> {
     let client = reqwest::Client::builder().build()?;
 
     let mut headers = reqwest::header::HeaderMap::new();
@@ -459,7 +469,7 @@ async fn fetch_final_grades_export(
 
 type GradesHashMap = HashMap<String, Vec<Option<f32>>>;
 
-fn parse_grades_html(html: String) -> Result<GradesHashMap, Box<dyn std::error::Error>> {
+fn parse_grades_html(html: String) -> Result<GradesHashMap, anyhow::Error> {
     let document = scraper::Html::parse_document(html.as_str());
     let grade_selector = scraper::Selector::parse("td.grade, td.grade.no-grade")
         .expect("could not parse grade_selector");
