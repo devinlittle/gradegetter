@@ -209,6 +209,7 @@ dependencies = [
 name = "backend"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "axum",
  "axum-extra",
  "axum-server",

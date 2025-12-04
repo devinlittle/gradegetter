@@ -12,15 +12,16 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
+mod middleware;
 mod routes;
 mod util;
 
 #[tokio::main]
 async fn main() {
-   tracing_subscriber::fmt()
+    tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
-   
+
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("failed to install rustls cryptoi provider");

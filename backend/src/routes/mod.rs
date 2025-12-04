@@ -8,18 +8,24 @@ pub mod auth;
 pub mod grades;
 
 pub fn create_routes(pool: PgPool) -> Router {
-    Router::new()
-        // Auth Routes
+    let routes_without_middleware = Router::new()
         .route("/auth/register", post(auth::register_handler))
-        .route("/auth/login", post(auth::login_handler))
+        .route("/auth/login", post(auth::login_handler));
+
+    let routes_with_middleware = Router::new()
+        // Auth Routes
         .route("/auth/delete", delete(auth::delete_handler))
-        .route("/auth/validate", post(auth::validate_token))
-        .route("/auth/forward", post(auth::foward_to_gradegetter))
+        .route("/auth/forward", get(auth::foward_to_gradegetter))
         .route(
             "/auth/schoology/credentials",
             post(auth::schoology_credentials_handler),
         )
         // Grade Route
         .route("/grades", get(grades::grades_handler))
+        .layer(axum::middleware::from_fn(crate::middleware::jwt::jwt_auth));
+
+    Router::new()
+        .merge(routes_with_middleware)
+        .merge(routes_without_middleware)
         .with_state(pool)
 }

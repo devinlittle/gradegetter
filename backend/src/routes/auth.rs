@@ -1,15 +1,15 @@
-use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
-use axum_extra::{
-    TypedHeader,
-    headers::{Authorization, authorization::Bearer},
-};
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use anyhow::Result;
+use axum::{Extension, Json, extract::State, http::StatusCode, response::IntoResponse};
+use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool, types::uuid};
 use time::OffsetDateTime;
 use tracing::{error, info};
 
-use crate::util::hash::{hash, validate};
+use crate::{
+    middleware::jwt::{AuthenticatedUser, Claims},
+    util::hash::{hash, validate},
+};
 
 #[derive(Deserialize)]
 pub struct RegisterInput {
@@ -36,66 +36,6 @@ pub async fn register_handler(
 pub struct LoginInput {
     username: String,
     password: String,
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-struct Claims {
-    sub: String,
-    username: String,
-    #[serde(with = "jwt_numeric_date")]
-    iat: OffsetDateTime,
-    #[serde(with = "jwt_numeric_date")]
-    exp: OffsetDateTime,
-}
-
-impl Claims {
-    /// If a token should always be equal to its representation after serializing and deserializing
-    /// again, this function must be used for construction. `OffsetDateTime` contains a microsecond
-    /// field but JWT timestamps are defined as UNIX timestamps (seconds). This function normalizes
-    /// the timestamps.
-    pub fn new(sub: String, username: String, iat: OffsetDateTime, exp: OffsetDateTime) -> Self {
-        // normalize the timestamps by stripping of microseconds
-        let iat = iat
-            .date()
-            .with_hms_milli(iat.hour(), iat.minute(), iat.second(), 0)
-            .unwrap()
-            .assume_utc();
-        let exp = exp
-            .date()
-            .with_hms_milli(exp.hour(), exp.minute(), exp.second(), 0)
-            .unwrap()
-            .assume_utc();
-
-        Self {
-            sub,
-            username,
-            iat,
-            exp,
-        }
-    }
-}
-mod jwt_numeric_date {
-    //! Custom serialization of OffsetDateTime to conform with the JWT spec (RFC 7519 section 2, "Numeric Date")
-    use serde::{self, Deserialize, Deserializer, Serializer};
-    use time::OffsetDateTime;
-
-    /// Serializes an OffsetDateTime to a Unix timestamp (milliseconds since 1970/1/1T00:00:00T)
-    pub fn serialize<S>(date: &OffsetDateTime, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let timestamp = date.unix_timestamp();
-        serializer.serialize_i64(timestamp)
-    }
-
-    /// Attempts to deserialize an i64 and use as a Unix timestamp
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<OffsetDateTime, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        OffsetDateTime::from_unix_timestamp(i64::deserialize(deserializer)?)
-            .map_err(|_| serde::de::Error::custom("invalid Unix timestamp value"))
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -134,7 +74,12 @@ pub async fn login_handler(
         let iat = OffsetDateTime::now_utc();
         let exp = iat + time::Duration::days(365);
 
-        let claims = Claims::new(sub.clone(), username, iat, exp);
+        let claims = Claims {
+            sub: sub.clone(),
+            username,
+            iat,
+            exp,
+        };
 
         let token = encode(
             &Header::default(),
@@ -156,59 +101,26 @@ pub async fn login_handler(
 
 #[derive(Deserialize)]
 pub struct SchoologyLogin {
-    token: String,
     schoology_email: String,
     schoology_password: String,
 }
 
 pub async fn schoology_credentials_handler(
     State(pool): State<PgPool>,
+    Extension(user): Extension<AuthenticatedUser>,
     Json(req): Json<SchoologyLogin>,
-) -> impl IntoResponse {
-    let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
-    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
-    let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
-    let uuid_jwt = match jsonwebtoken::decode::<Claims>(&req.token, &decoding_key, &validation)
-        .map(|x| x.claims.sub)
-    {
-        Ok(uuid) => uuid,
-        Err(err) => {
-            let _ = match *err.kind() {
-                jsonwebtoken::errors::ErrorKind::InvalidToken => {
-                    tracing::warn!("InvalidToken");
-                    "Invalid Token"
-                }
-                jsonwebtoken::errors::ErrorKind::InvalidSignature => {
-                    tracing::warn!("InvalidSignature");
-                    "Invalid Signature"
-                }
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                    tracing::warn!("ExpiredSignature");
-                    "Expiered Signature"
-                }
-                _ => {
-                    tracing::warn!("Something really bad happened");
-                    "Token Verifation fail"
-                }
-            };
-            return Err(axum::http::StatusCode::UNAUTHORIZED);
-        }
-    };
-
+) -> Result<(), StatusCode> {
     info!(
         "Encrypted Schoology Credentials added to user: {:?}",
-        uuid_jwt
+        user.username
     );
-
-    let uuid = uuid::Uuid::parse_str(uuid_jwt.as_str())
-        .map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
 
     sqlx::query!(
         "INSERT INTO schoology_auth (id, encrypted_email, encrypted_password) VALUES ($1, $2, $3)
          ON CONFLICT (id) DO UPDATE SET 
              encrypted_email = EXCLUDED.encrypted_email,
              encrypted_password = EXCLUDED.encrypted_password",
-        uuid,
+        user.uuid,
         crypto_utils::encrypt_string(req.schoology_email.as_str()),
         crypto_utils::encrypt_string(req.schoology_password.as_str()),
     )
@@ -217,7 +129,7 @@ pub async fn schoology_credentials_handler(
     .map_err(|err| {
         error!(
             "Failed to store Schoology credentials for user {}: {}",
-            uuid, err
+            user.uuid, err
         );
         axum::http::StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -225,7 +137,40 @@ pub async fn schoology_credentials_handler(
     Ok(())
 }
 
-#[derive(Debug, Deserialize)]
+pub async fn foward_to_gradegetter() -> Result<(), StatusCode> {
+    let client = reqwest::Client::new();
+    let _ = client
+        .request(reqwest::Method::GET, "http://gradegetter:3001/userinit")
+        .send()
+        .await
+        .map_err(|err| {
+            error!("failed to initlize user... {}", err);
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    Ok(())
+}
+
+pub async fn delete_handler(
+    State(pool): State<PgPool>,
+    Extension(user): Extension<AuthenticatedUser>,
+) -> impl IntoResponse {
+    match sqlx::query!("DELETE FROM service_auth WHERE id = $1", user.uuid)
+        .execute(&pool)
+        .await
+    {
+        Ok(result) if result.rows_affected() > 0 => {
+            info!("deleted user: {}", user.username);
+            axum::http::StatusCode::OK
+        }
+        Ok(_) => StatusCode::NOT_FOUND,
+        Err(err) => {
+            error!("database error: {:?}", err);
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+        }
+    }
+}
+
+/*#[derive(Debug, Deserialize)]
 pub struct ValidateInput {
     token: String,
 }
@@ -263,101 +208,4 @@ pub async fn validate_token(Json(req): Json<ValidateInput>) -> impl IntoResponse
         }
     };
     (axum::http::StatusCode::OK, Json("Good Token!".to_string()))
-}
-
-pub async fn foward_to_gradegetter(Json(req): Json<ValidateInput>) -> impl IntoResponse {
-    let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
-    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
-    let decoding_key = DecodingKey::from_secret(jwt_secret.as_bytes());
-    let _uuid_jwt = match jsonwebtoken::decode::<Claims>(&req.token, &decoding_key, &validation)
-        .map(|x| x.claims.sub)
-    {
-        Ok(uuid) => uuid,
-        Err(err) => {
-            let _ = match *err.kind() {
-                jsonwebtoken::errors::ErrorKind::InvalidToken => {
-                    tracing::warn!("InvalidToken");
-                    "Invalid Token"
-                }
-                jsonwebtoken::errors::ErrorKind::InvalidSignature => {
-                    tracing::warn!("InvalidSignature");
-                    "Invalid Signature"
-                }
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                    tracing::warn!("ExpiredSignature");
-                    "Expiered Signature"
-                }
-                _ => {
-                    tracing::warn!("Something really bad happened");
-                    "Token Verifation fail"
-                }
-            };
-            //return (Json(msg.to_string()), axum::http::StatusCode::UNAUTHORIZED);
-            return Err(axum::http::StatusCode::UNAUTHORIZED);
-        }
-    };
-    let client = reqwest::Client::new();
-    let _ = client
-        .request(reqwest::Method::GET, "http://gradegetter:3001/userinit")
-        .send()
-        .await
-        .unwrap();
-    Ok(())
-}
-
-pub async fn delete_handler(
-    State(pool): State<PgPool>,
-    TypedHeader(Authorization(bearer)): TypedHeader<Authorization<Bearer>>,
-) -> impl IntoResponse {
-    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
-
-    let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
-    let token = match decode::<Claims>(
-        bearer.token(),
-        &DecodingKey::from_secret(jwt_secret.as_ref()),
-        &validation,
-    ) {
-        Ok(c) => c,
-        Err(err) => {
-            let _ = match *err.kind() {
-                jsonwebtoken::errors::ErrorKind::InvalidToken => {
-                    tracing::warn!("InvalidToken");
-                    "Invalid Token"
-                }
-                jsonwebtoken::errors::ErrorKind::InvalidSignature => {
-                    tracing::warn!("InvalidSignature");
-                    "Invalid Signature"
-                }
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                    tracing::warn!("ExpiredSignature");
-                    "Expiered Signature"
-                }
-                _ => {
-                    tracing::warn!("Something really bad happened");
-                    "Token Verifation fail"
-                }
-            };
-            return axum::http::StatusCode::UNAUTHORIZED;
-        }
-    }
-    .claims;
-
-    let uuid = uuid::Uuid::parse_str(token.sub.as_str())
-        .map_err(|_| axum::http::StatusCode::BAD_REQUEST)
-        .expect("uuid parsing failed");
-
-    match sqlx::query!("DELETE FROM service_auth WHERE id = $1", uuid)
-        .execute(&pool)
-        .await
-    {
-        Ok(result) if result.rows_affected() > 0 => {
-            info!("deleted user: {}", token.username);
-            axum::http::StatusCode::OK
-        }
-        Ok(_) => StatusCode::NOT_FOUND,
-        Err(err) => {
-            error!("database error: {:?}", err);
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
-}
+} */
