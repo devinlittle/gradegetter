@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use axum::{Router, response::IntoResponse, routing::get};
 use crypto_utils::{decrypt_string, encrypt_string};
 use serde_json::Value;
@@ -12,11 +13,11 @@ use tokio::{
     },
 };
 
-use tracing::{debug, info, trace};
+use tracing::{debug, error, info, trace};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), anyhow::Error> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
@@ -28,7 +29,8 @@ async fn main() {
         .acquire_timeout(Duration::from_secs(3))
         .connect(&database_string)
         .await
-        .expect("can't connect to database");
+        .context("failed to connect to database")?;
+
     let pool = Arc::new(pool);
 
     // Token Getter Thread?
@@ -48,14 +50,80 @@ async fn main() {
                     let (id, email, password) =
                         (user.id, user.encrypted_email, user.encrypted_password);
 
-                    let dec_password = decrypt_string(password.as_str());
-                    let dec_email = decrypt_string(email.as_str());
+                    let dec_password = match decrypt_string(password.as_str()) {
+                        Ok(dec_password) => dec_password,
+                        Err(err) => {
+                            if err.contains("(short)")
+                                || err.contains("base64 decode failed")
+                                || err.is_empty()
+                            {
+                                "error".to_string()
+                            } else {
+                                panic!("weird issue? {}", err);
+                            }
+                        }
+                    };
+
+                    let dec_email = match decrypt_string(email.as_str()) {
+                        Ok(dec_email) => dec_email,
+                        Err(err) => {
+                            if err.contains("(short)")
+                                || err.contains("base64 decode failed")
+                                || err.is_empty()
+                            {
+                                "error".to_string()
+                            } else {
+                                panic!("weird issue? {}", err);
+                            }
+                        }
+                    };
+
+                    if dec_email == "error" || dec_password == "error" {
+                        error!(
+                            "decyrpt_string, (token thread) skipping user due to decryption error:  {}",
+                            id
+                        );
+                        let _ = sqlx::query!(
+                            "UPDATE schoology_auth SET session_token = NULL WHERE id = $1",
+                            id
+                        )
+                        .execute(&*pool_token)
+                        .await
+                        .map_err(|err| {
+                            tracing::info!("Database error: {}", err);
+                            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                        });
+
+                        continue;
+                    }
+
+                    let token = match get_token(dec_email.as_str(), dec_password.as_str()).await {
+                        Ok(token) => token,
+                        Err(err) => {
+                            tracing::error!("get_token failure with user: {}, error: {}", id, err);
+                            "error".to_string()
+                        }
+                    };
+
+                    if token == "error" {
+                        debug!("SKIPPING USER {}", id);
+                        let _ = sqlx::query!(
+                            "UPDATE schoology_auth SET session_token = NULL WHERE id = $1",
+                            id
+                        )
+                        .execute(&*pool_token)
+                        .await
+                        .map_err(|err| {
+                            tracing::info!("Database error: {}", err);
+                            axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                        });
+
+                        continue;
+                    }
 
                     let _ = sqlx::query!(
                         "UPDATE schoology_auth SET session_token = $1 WHERE id = $2",
-                        get_token(dec_email.unwrap().as_str(), dec_password.unwrap().as_str())
-                            .await
-                            .unwrap(),
+                        token,
                         id
                     )
                     .execute(&*pool_token)
@@ -87,15 +155,45 @@ async fn main() {
             {
                 for user in users {
                     if let (id, Some(token)) = (user.id, user.session_token) {
-                        match fetch_grades(
-                            decrypt_string(token.as_str()).expect("Decrypting token string failed"),
-                        )
-                        .await
-                        {
+                        let token = match decrypt_string(token.as_str()) {
+                            Ok(token) => token,
+                            Err(err) => {
+                                if err.contains("(short)")
+                                    || err.contains("base64 decode failed")
+                                    || err.is_empty()
+                                {
+                                    "error".to_string()
+                                } else {
+                                    panic!("weird issue? {}", err);
+                                }
+                            }
+                        };
+
+                        if token == "error" {
+                            error!(
+                                "decyrpt_string, (grade thread) skipping user due to decryption error:  {}",
+                                id
+                            );
+
+                            let _ = sqlx::query!(
+                                "UPDATE schoology_auth SET session_token = NULL WHERE id = $1",
+                                id
+                            )
+                            .execute(&*pool_grades)
+                            .await
+                            .map_err(|err| {
+                                tracing::info!("Database error: {}", err);
+                                axum::http::StatusCode::INTERNAL_SERVER_ERROR
+                            });
+
+                            continue;
+                        }
+
+                        match fetch_grades(token).await {
                             Ok(grades_json) => {
                                 let _ = sqlx::query!(
                                 "INSERT INTO grades (id, grades) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET grades = EXCLUDED.grades",
-                                id, grades_json
+                                    id, grades_json
                                 )
                                 .execute(&*pool_grades)
                                 .await
@@ -103,6 +201,8 @@ async fn main() {
                                     tracing::error!("Database error: {}", err);
                                     axum::http::StatusCode::INTERNAL_SERVER_ERROR
                                 });
+
+                                info!("Updated grades for UUID: {}", id);
                             }
                             Err(e) => {
                                 let error_msg = e.to_string();
@@ -114,7 +214,6 @@ async fn main() {
                                 tracing::error!("Failed to fetch grades for {}: {}", id, error_msg);
                             }
                         }
-                        info!("Updated grades for UUID: {}", id);
                     }
                 }
             }
@@ -141,6 +240,8 @@ async fn main() {
         .with_graceful_shutdown(shutdown_signal())
         .await
         .unwrap();
+
+    Ok(())
 }
 
 async fn shutdown_signal() {
@@ -166,7 +267,7 @@ async fn health() -> impl IntoResponse {
     "Alive".to_string()
 }
 
-async fn user_token_initalize(pool: Arc<PgPool>) -> impl IntoResponse {
+async fn user_token_initalize(pool: Arc<PgPool>) -> Result<String, axum::http::StatusCode> {
     let user = sqlx::query!("SELECT id, encrypted_email, encrypted_password FROM schoology_auth WHERE session_token IS NULL")
         .fetch_one(&*pool)
         .await
@@ -184,11 +285,15 @@ async fn user_token_initalize(pool: Arc<PgPool>) -> impl IntoResponse {
 
     let dec_password = decrypt_string(password.as_str());
     let dec_email = decrypt_string(email.as_str());
-    let token = get_token(dec_email.unwrap().as_str(), dec_password.unwrap().as_str())
-        .await
-        .unwrap();
+    let token = match get_token(dec_email.unwrap().as_str(), dec_password.unwrap().as_str()).await {
+        Ok(token) => token,
+        Err(err) => {
+            tracing::error!("get_token failure with user: {}, error: {}", id, err);
+            return Err(axum::http::StatusCode::UNAUTHORIZED);
+        }
+    };
 
-    let _ = sqlx::query!(
+    sqlx::query!(
         "UPDATE schoology_auth SET session_token = $1 WHERE id = $2",
         token,
         id
@@ -198,22 +303,24 @@ async fn user_token_initalize(pool: Arc<PgPool>) -> impl IntoResponse {
     .map_err(|err| {
         tracing::info!("Database error: {}", err);
         axum::http::StatusCode::INTERNAL_SERVER_ERROR
-    });
+    })?;
 
     info!("user_token_initalize: Updated token for UUID: {}", id);
 
-    let _ = sqlx::query!("INSERT INTO grades (id, grades) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET grades = EXCLUDED.grades",
+    sqlx::query!("INSERT INTO grades (id, grades) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET grades = EXCLUDED.grades",
         id,
         fetch_grades(decrypt_string(token.as_str()).expect("Decrypting Token String Failed"))
-            .await
-            .unwrap()
+            .await.map_err(|err| {
+                tracing::error!("fetch_grades error: {}", err);
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR
+            })?,
         )
         .execute(&*pool)
         .await
         .map_err(|err| {
             tracing::error!("Database error: {}", err);
             axum::http::StatusCode::INTERNAL_SERVER_ERROR
-        });
+        })?;
 
     info!("user_token_initalize: Updated grades for UUID: {}", id);
 
@@ -229,23 +336,38 @@ async fn get_token(email: &str, password: &str) -> Result<String, anyhow::Error>
         .arg(email)
         .arg(password)
         .output()
-        .await?;
+        .await
+        .context("failed to execute tokengetter")?;
 
-    Ok(encrypt_string(
-        String::from_utf8_lossy(&output.stdout).trim(),
-    ))
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("the tokengetter script failed: {}", stderr);
+    }
+
+    let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if token.is_empty() {
+        anyhow::bail!("tokengetter returned an empty token");
+    }
+
+    Ok(encrypt_string(&token))
 }
 
 async fn fetch_grades(token: String) -> Result<Value, anyhow::Error> {
-    let forms = select_grade_period(token.clone()).await?;
+    let forms = select_grade_period(token.clone())
+        .await
+        .context("select_grade_period failed")?;
     let html = fetch_final_grades_export(
         forms.form_build_id.as_str(),
         forms.form_token.as_str(),
         token,
     )
-    .await?;
+    .await
+    .context("fetch_final_grades_export failed")?;
 
-    let grades: HashMap<String, Vec<Option<f32>>> = parse_grades_html(html)?;
+    let grades: HashMap<String, Vec<Option<f32>>> =
+        parse_grades_html(html).context("parse_grades_html failed to parse through html")?;
+
     Ok(serde_json::to_value(grades)?)
 }
 
@@ -263,7 +385,7 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, anyhow::Error>
     let client = reqwest::Client::builder().build()?;
 
     let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert("Cookie", token.parse().unwrap());
+    headers.insert("Cookie", token.parse()?);
 
     let req = client
         .request(
@@ -275,7 +397,8 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, anyhow::Error>
     let response = req.send().await?;
     let body = response.text().await?;
 
-    let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
+    let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#)
+        .context("fetch_export_form_tokens regex1 failed")?;
     if let Some(caps) = re_v1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
         debug!("fetch_export_form_tokens: form_build_id match found");
@@ -283,8 +406,9 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, anyhow::Error>
         debug!("fetch_export_form_tokens: form_build_id NO match found");
     }
 
-    let re_v2 =
-        regex::Regex::new(r#"<input type="hidden" name="form_token" id="edit-s-grades-export-form-form-token-1" value="([^"]+)""#).unwrap();
+    let re_v2 = regex::Regex::new(
+        r#"<input type="hidden" name="form_token" id="edit-s-grades-export-form-form-token-1" value="([^"]+)""#,
+    ).context("fetch_export_form_tokens regex2 failed")?;
     if let Some(caps) = re_v2.captures(body.as_str()) {
         form_token = caps[1].to_string();
         debug!("fetch_export_form_tokens: form token match found");
@@ -309,7 +433,7 @@ async fn select_grade_period(token: String) -> Result<Forms, anyhow::Error> {
 
     let mut headers = reqwest::header::HeaderMap::new();
 
-    headers.insert("Cookie", token.parse().unwrap());
+    headers.insert("Cookie", token.parse()?);
 
     headers.insert("accept-language", "en-US,en;q=0.9".parse()?);
     headers.insert("cache-control", "max-age=0".parse()?);
@@ -343,7 +467,9 @@ async fn select_grade_period(token: String) -> Result<Forms, anyhow::Error> {
     // Q4
     params.insert("form_id", "s_grades_export_form");
     params.insert("op", "Next");
-    let params_needed = fetch_export_form_tokens(token).await.unwrap();
+    let params_needed = fetch_export_form_tokens(token)
+        .await
+        .context("fetch_export_form_tokens failed")?;
     params.insert("form_build_id", params_needed.form_build_id.as_str());
     params.insert("form_token", params_needed.form_token.as_str());
 
@@ -361,7 +487,8 @@ async fn select_grade_period(token: String) -> Result<Forms, anyhow::Error> {
     let mut form_build_id = "N/A".to_string();
     let mut form_token = "N/A".to_string();
 
-    let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap();
+    let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#)
+        .context("select_grade_period regex1 failed")?;
     if let Some(caps) = re_v1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
         debug!("select_grade_period: form_build_id match found");
@@ -369,7 +496,8 @@ async fn select_grade_period(token: String) -> Result<Forms, anyhow::Error> {
         debug!("select_grade_period: form_build_id NO match found");
     }
 
-    let re_v2 = regex::Regex::new(r#"form-token" value="([^"]+)""#).unwrap();
+    let re_v2 = regex::Regex::new(r#"form-token" value="([^"]+)""#)
+        .context("select_grade_period regex2 failed")?;
     if let Some(caps) = re_v2.captures(body.as_str()) {
         form_token = caps[1].to_string();
         debug!("select_grade_period: form token match found");
@@ -391,7 +519,7 @@ async fn fetch_class_ids(token: &str) -> Result<HashMap<String, String>, anyhow:
     let client = reqwest::Client::builder().build()?;
 
     let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert("Cookie", token.parse().unwrap());
+    headers.insert("Cookie", token.parse()?);
 
     let req = client
         .request(
@@ -405,7 +533,8 @@ async fn fetch_class_ids(token: &str) -> Result<HashMap<String, String>, anyhow:
 
     let mut hashmap: HashMap<String, String> = HashMap::new();
 
-    let re_class_id = regex::Regex::new(r#"id="s-js-gradebook-course-(\d+)"#).unwrap();
+    let re_class_id = regex::Regex::new(r#"id="s-js-gradebook-course-(\d+)"#)
+        .context("Regex for fetch_class_ids failed")?;
     for (_, [id]) in re_class_id.captures_iter(&body).map(|c| c.extract()) {
         trace!("class ids: {id}");
         hashmap.insert(format!("courses[{}][selected]", id), "1".to_string());
@@ -423,7 +552,7 @@ async fn fetch_final_grades_export(
 
     let mut headers = reqwest::header::HeaderMap::new();
 
-    headers.insert("Cookie", token.parse().unwrap());
+    headers.insert("Cookie", token.parse()?);
 
     headers.insert("accept-language", "en-US,en;q=0.9".parse()?);
     headers.insert("cache-control", "max-age=0".parse()?);
@@ -446,7 +575,10 @@ async fn fetch_final_grades_export(
     headers.insert("sec-fetch-user", "?1".parse()?);
     headers.insert("upgrade-insecure-requests", "1".parse()?);
 
-    let mut params = fetch_class_ids(&token).await.unwrap();
+    let mut params = fetch_class_ids(&token)
+        .await
+        .context("fetch_class_ids failed: {}")?;
+
     params.insert("form_id".to_string(), "s_grades_export_form".to_string());
     params.insert("form_build_id".to_string(), form_build_id.to_string());
     params.insert("form_token".to_string(), form_token.to_string());

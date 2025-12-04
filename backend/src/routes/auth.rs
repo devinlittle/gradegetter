@@ -191,11 +191,14 @@ pub async fn schoology_credentials_handler(
                     "Token Verifation fail"
                 }
             };
-            //return (Json(msg.to_string()), axum::http::StatusCode::UNAUTHORIZED);
             return Err(axum::http::StatusCode::UNAUTHORIZED);
         }
     };
-    info!("Giving Grades to: {:?}", uuid_jwt);
+
+    info!(
+        "Encrypted Schoology Credentials added to user: {:?}",
+        uuid_jwt
+    );
 
     let uuid = uuid::Uuid::parse_str(uuid_jwt.as_str())
         .map_err(|_| axum::http::StatusCode::BAD_REQUEST)?;
