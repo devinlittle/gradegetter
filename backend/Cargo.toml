@@ -12,6 +12,8 @@ hyper.workspace = true
 hyper-tls.workspace = true
 tower-http.workspace = true
 tower.workspace = true
+utoipa.workspace = true
+utoipa-swagger-ui.workspace = true
 rustls = {workspace = true, features = ["ring"]}
 ring.workspace = true
 reqwest.workspace = true

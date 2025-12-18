@@ -1,9 +1,7 @@
-use std::time::Duration;
-
 use axum::Router;
-use axum_server::tls_rustls::RustlsConfig;
 use hyper::header::{AUTHORIZATION, CONTENT_TYPE};
 use sqlx::postgres::PgPoolOptions;
+use std::{net::SocketAddr, time::Duration};
 use tokio::signal::{
     self,
     unix::{SignalKind, signal},
@@ -36,7 +34,7 @@ async fn main() {
         ])
         .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
 
-    let database_string = dotenvy::var("DATABASE_URL").expect("DATABASE_URL not found");
+    let database_string = dotenvy::var("DATABASE_URL").expect("DATABASE_URL env_var not found");
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -45,42 +43,26 @@ async fn main() {
         .await
         .expect("can't connect to database");
 
-    let production_enviorment = dotenvy::var("PRODUCTION").is_ok();
-
     let app = Router::new().merge(routes::create_routes(pool.clone()).layer(cors));
 
-    let host_on = format!("0.0.0.0:{}", dotenvy::var("PORT").unwrap());
+    let host_on = format!(
+        "0.0.0.0:{}",
+        dotenvy::var("PORT").expect("PORT env var not found")
+    );
 
     let handle = axum_server::Handle::new();
     let shutdown_signal_handler = shutdown_signal(handle.clone());
 
-    if production_enviorment {
-        let config = RustlsConfig::from_pem_file("/etc/fullchain.pem", "/etc/privkey.pem")
-            .await
-            .map_err(|e| tracing::error!("failed to load RustlsConfig: {}", e))
-            .unwrap();
+    let listener_tokio = tokio::net::TcpListener::bind(host_on).await.unwrap();
 
-        tokio::spawn(shutdown_signal_handler);
-
-        let listener_std = std::net::TcpListener::bind(host_on).unwrap();
-        info!("Listening on {}", listener_std.local_addr().unwrap());
-        axum_server::from_tcp_rustls(listener_std, config)
-            .handle(handle)
-            .serve(app.into_make_service())
-            .await
-            .unwrap();
-    } else {
-        let listener_tokio = tokio::net::TcpListener::bind(host_on).await.unwrap();
-
-        info!("Listening on {}", listener_tokio.local_addr().unwrap());
-        axum::serve(listener_tokio, app)
-            .with_graceful_shutdown(shutdown_signal_handler)
-            .await
-            .unwrap();
-    }
+    info!("Listening on {}", listener_tokio.local_addr().unwrap());
+    axum::serve(listener_tokio, app)
+        .with_graceful_shutdown(shutdown_signal_handler)
+        .await
+        .unwrap();
 }
 
-async fn shutdown_signal(handle: axum_server::Handle) {
+async fn shutdown_signal(handle: axum_server::Handle<SocketAddr>) {
     let ctrl_c = signal::ctrl_c();
 
     let terminte = async {

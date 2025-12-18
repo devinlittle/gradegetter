@@ -7,11 +7,13 @@ members = [
 tokio = {version = "1", features = ["full"]}
 axum = {version = "0.8.7"}
 axum-extra = "0.12.2"
-axum-server = {version = "0.7.3", features = ["tls-rustls"]}
+axum-server = {version = "0.8", features = ["tls-rustls"]}
 hyper = {version = "1.8.0"}
 hyper-tls = "0.6.0"
-tower-http = { version = "0.6.6", features = ["cors"]}
+tower-http = { version = "0.6.8", features = ["cors"]}
 tower = "0.5.2"
+utoipa = {version = "5.4", features = ["axum_extras", "time", "uuid"]}
+utoipa-swagger-ui = {version = "9.0", features = ["axum"]}
 rustls = { version = "0.23.35", features = ["ring"] }
 ring = "0.17.14"
 reqwest = {version = "0.12"}
@@ -19,7 +21,7 @@ serde = {version = "1", features = ["derive"]}
 serde_json = {version = "1"}
 sha2 = {version = "0.10.9"}
 sqlx = {version = "0.8.6"}
-uuid = {version = "1.18.1", features = ["v4", "serde"]}
+uuid = {version = "1.19", features = ["v4", "serde"]}
 time = "0.3.44"
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 tracing = "0.1.41"
@@ -28,7 +30,7 @@ anyhow = "1.0"
 dotenvy = "0.15.7"
 constant_time_eq = "0.4.2"
 regex = "1"
-scraper = "0.24"
+scraper = "0.25"
 aes-gcm = "0.10"
 aes = "0.8.4"
 rand = "0.9"

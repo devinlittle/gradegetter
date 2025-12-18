@@ -5,18 +5,31 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool, types::uuid};
 use time::OffsetDateTime;
 use tracing::{error, info};
+use utoipa::ToSchema;
 
 use crate::{
     middleware::jwt::{AuthenticatedUser, Claims},
     util::hash::{hash, validate},
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct RegisterInput {
+    #[schema(example = "user")]
     username: String,
+    #[schema(example = "password")]
     password: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/register",
+    request_body = RegisterInput,
+    responses(
+        (status = 200, description = "Registers User!", body = String),
+        (status = 409, description = "User exists")
+    ),
+    tag = "user_auth"
+)]
 pub async fn register_handler(
     State(pool): State<PgPool>,
     Json(req): Json<RegisterInput>,
@@ -32,9 +45,11 @@ pub async fn register_handler(
     Ok(Json("User registered".to_string()))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct LoginInput {
+    #[schema(example = "user")]
     username: String,
+    #[schema(example = "password")]
     password: String,
 }
 
@@ -45,6 +60,17 @@ pub struct ReturnDB {
     password_hash: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/login",
+    request_body = LoginInput, 
+    responses(
+        (status = 200, description = "Returns Valid JWT for User", body = String),
+        (status = 401, description = "Credentials Incorrect"),
+        (status = 500, description = "Interal Server Error")
+    ),
+    tag = "user_auth"
+)]
 pub async fn login_handler(
     State(pool): State<PgPool>,
     Json(req): Json<LoginInput>,
@@ -99,12 +125,28 @@ pub async fn login_handler(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct SchoologyLogin {
+    #[schema(example = "email@exmaple.com")]
     schoology_email: String,
+    #[schema(example = "password")]
     schoology_password: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/schoology/credentials",
+    request_body = SchoologyLogin,
+    security(
+        ("bearer_auth" = [])
+    ),
+    responses(
+        (status = 200, description = "Encrypts schoology info and inserts into database", body = String),
+        (status = 401, description = "Credentials Incorrect"),
+        (status = 500, description = "Internal Server Error")
+    ),
+    tag = "user_auth"
+)]
 pub async fn schoology_credentials_handler(
     State(pool): State<PgPool>,
     Extension(user): Extension<AuthenticatedUser>,
@@ -137,6 +179,19 @@ pub async fn schoology_credentials_handler(
     Ok(())
 }
 
+#[utoipa::path(
+    get,
+    path = "/auth/forward",
+    security(
+        ("bearer_auth" = [])
+    ),
+    responses(
+        (status = 200, description = "Initilized User on GradeGetter", body = String),
+        (status = 401, description = "Credentials Incorrect"),
+        (status = 500, description = "Interal Server Error")
+    ),
+    tag = "user_auth"
+)]
 pub async fn foward_to_gradegetter() -> Result<(), StatusCode> {
     let client = reqwest::Client::new();
     let _ = client
@@ -150,6 +205,21 @@ pub async fn foward_to_gradegetter() -> Result<(), StatusCode> {
     Ok(())
 }
 
+
+#[utoipa::path(
+    delete,
+    path = "/auth/delete",
+    security(
+        ("bearer_auth" = [])
+    ),
+    responses(
+        (status = 200, description = "Deleted User", body = String),
+        (status = 401, description = "Credentials Incorrect"),
+        (status = 404, description = "Not Found"),
+        (status = 500, description = "Interal Server Error")
+    ),
+    tag = "user_auth"
+)]
 pub async fn delete_handler(
     State(pool): State<PgPool>,
     Extension(user): Extension<AuthenticatedUser>,

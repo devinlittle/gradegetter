@@ -6,14 +6,15 @@ use axum_extra::{
 use jsonwebtoken::{DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use utoipa::ToSchema;
 
-#[derive(Clone)]
+#[derive(Clone, ToSchema)]
 pub struct AuthenticatedUser {
     pub username: String,
     pub uuid: uuid::Uuid,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Claims {
     pub sub: String,
     pub username: String,

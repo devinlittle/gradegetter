@@ -5,6 +5,20 @@ use tracing::info;
 
 use crate::middleware::jwt::AuthenticatedUser;
 
+#[utoipa::path(
+    get,
+    path = "/grades",
+    security(
+        ("bearer_auth" = [])
+    ),
+    responses(
+        (status = 200, description = "Grades for the User", body = Value),
+        (status = 400, description = "No Grades"),
+        (status = 401, description = "Credentials Incorrect"),
+        (status = 500, description = "Interal Server Error")
+    ),
+    tag = "grades"
+)]
 pub async fn grades_handler(
     State(pool): State<PgPool>,
     Extension(user): Extension<AuthenticatedUser>,
