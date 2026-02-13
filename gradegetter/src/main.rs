@@ -53,28 +53,16 @@ async fn main() -> Result<(), anyhow::Error> {
                     let dec_password = match decrypt_string(password.as_str()) {
                         Ok(dec_password) => dec_password,
                         Err(err) => {
-                            if err.contains("(short)")
-                                || err.contains("base64 decode failed")
-                                || err.is_empty()
-                            {
-                                "error".to_string()
-                            } else {
-                                panic!("weird issue? {}", err);
-                            }
+                            tracing::warn!("weird issue? {}", err);
+                            "error".to_string()
                         }
                     };
 
                     let dec_email = match decrypt_string(email.as_str()) {
                         Ok(dec_email) => dec_email,
                         Err(err) => {
-                            if err.contains("(short)")
-                                || err.contains("base64 decode failed")
-                                || err.is_empty()
-                            {
-                                "error".to_string()
-                            } else {
-                                panic!("weird issue? {}", err);
-                            }
+                            tracing::warn!("weird issue? {}", err);
+                            "error".to_string()
                         }
                     };
 
@@ -158,14 +146,8 @@ async fn main() -> Result<(), anyhow::Error> {
                         let token = match decrypt_string(token.as_str()) {
                             Ok(token) => token,
                             Err(err) => {
-                                if err.contains("(short)")
-                                    || err.contains("base64 decode failed")
-                                    || err.is_empty()
-                                {
-                                    "error".to_string()
-                                } else {
-                                    panic!("weird issue? {}", err);
-                                }
+                                tracing::warn!("weird issue? {}", err);
+                                "error".to_string()
                             }
                         };
 
@@ -348,6 +330,13 @@ async fn get_token(email: &str, password: &str) -> Result<String, anyhow::Error>
 
     if token.is_empty() {
         anyhow::bail!("tokengetter returned an empty token");
+    }
+
+    if !token.starts_with("SESS") {
+        anyhow::bail!(
+            "tokengetter returned invalid session token format: {}",
+            token
+        );
     }
 
     Ok(encrypt_string(&token))

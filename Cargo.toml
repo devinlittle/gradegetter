@@ -5,7 +5,7 @@ members = [
 
 [workspace.dependencies]
 tokio = {version = "1", features = ["full"]}
-axum = {version = "0.8.7"}
+axum = {version = "0.8.8"}
 axum-extra = "0.12.2"
 axum-server = {version = "0.8", features = ["tls-rustls"]}
 hyper = {version = "1.8.0"}
@@ -24,8 +24,8 @@ sqlx = {version = "0.8.6"}
 uuid = {version = "1.19", features = ["v4", "serde"]}
 time = "0.3.44"
 jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
-tracing = "0.1.41"
-tracing-subscriber = {version = "0.3.20", features = ["env-filter"] }
+tracing = "0.1.44"
+tracing-subscriber = {version = "0.3.22", features = ["env-filter"] }
 anyhow = "1.0"
 dotenvy = "0.15.7"
 constant_time_eq = "0.4.2"
