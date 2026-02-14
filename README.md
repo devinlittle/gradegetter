@@ -18,7 +18,6 @@ A Rust powered monorepo to scrape Schoology grades, encrypt important informatio
 | ------------ | -------------------------------------------------------------------------------------- |
 | backend      | the backend service which interacts with the database safely                           |
 | gradegetter  | fetches grades and formats them into valid json, putting them into a postgres database |
-| gradegetter-desktop | views grades from api on a desktop native app                                   |
 | tokengetter  | grabs schoology session token using puppeteer                                          |
 | crypto_utils | the encryption and decryption crate                                                    |
 
@@ -28,7 +27,7 @@ A Rust powered monorepo to scrape Schoology grades, encrypt important informatio
 
 * [bun](https://bun.sh)/[pnpm](https://pnpm.io)
 
-* [NodeJS](https://nodejs.org))
+* [NodeJS](https://nodejs.org)
 
 * [PostgreSQL](https://www.postgresql.org/)
 
@@ -85,8 +84,7 @@ A Rust powered monorepo to scrape Schoology grades, encrypt important informatio
     ],
     "Health Education 10": [
         92.5,
-        null,
-        92.5
+        null
     ],
     "Networking Essentials 10": [
         99.37999725341795,
@@ -103,7 +101,6 @@ A Rust powered monorepo to scrape Schoology grades, encrypt important informatio
     "U.S. Government and Politics CP": [
         100.0,
         null,
-        100.0
     ],
     "United States History I CP": [
         100.0,
@@ -113,4 +110,3 @@ A Rust powered monorepo to scrape Schoology grades, encrypt important informatio
     ]
 }
 ```
-
