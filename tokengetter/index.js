@@ -6,13 +6,15 @@ const puppeteer = require('puppeteer');
     const args = process.argv;
     const browser = await puppeteer.launch({
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
-      headless: false,
+      headless: 'new',
       args: ['--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-gpu',
         '--disable-dev-shm-usage',
         '--disable-blink-features=AutomationControlled',
-        '--window-size=1280,720']
+        '--window-size=1280,720',
+        '--single-process',
+        '--no-zygote']
     });
 
     const page = await browser.newPage();
