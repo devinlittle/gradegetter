@@ -16,6 +16,7 @@ pub mod grades;
         crate::routes::auth::register_handler,
         crate::routes::auth::login_handler,
         crate::routes::auth::delete_handler,
+        crate::routes::auth::validate_token,
         crate::routes::auth::foward_to_gradegetter,
         crate::routes::auth::schoology_credentials_handler,
         // Grade path
@@ -62,6 +63,7 @@ pub fn create_routes(pool: PgPool) -> Router {
     let routes_with_middleware = Router::new()
         // Auth Routes
         .route("/auth/delete", delete(auth::delete_handler))
+        .route("/auth/validate", get(auth::validate_token))
         .route("/auth/forward", get(auth::foward_to_gradegetter))
         .route(
             "/auth/schoology/credentials",

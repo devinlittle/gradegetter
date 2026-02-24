@@ -205,6 +205,23 @@ pub async fn foward_to_gradegetter() -> Result<(), StatusCode> {
     Ok(())
 }
 
+#[utoipa::path(
+    get,
+    path = "/auth/validate",
+    security(
+        ("bearer_auth" = [])
+    ),
+    responses(
+        (status = 200, description = "User token is valid", body = String),
+        (status = 401, description = "Credentials Incorrect"),
+        (status = 500, description = "Interal Server Error")
+    ),
+    tag = "user_auth"
+)]
+pub async fn validate_token() -> Result<(), StatusCode> {
+    Ok(())
+}
+
 
 #[utoipa::path(
     delete,
@@ -239,43 +256,3 @@ pub async fn delete_handler(
         }
     }
 }
-
-/*#[derive(Debug, Deserialize)]
-pub struct ValidateInput {
-    token: String,
-}
-
-pub async fn validate_token(Json(req): Json<ValidateInput>) -> impl IntoResponse {
-    let validation = Validation::new(jsonwebtoken::Algorithm::HS256);
-
-    let jwt_secret = dotenvy::var("JWT_SECRET").unwrap();
-    let _token_data = match decode::<Claims>(
-        req.token.as_str(),
-        &DecodingKey::from_secret(jwt_secret.as_ref()),
-        &validation,
-    ) {
-        Ok(c) => c,
-        Err(err) => {
-            let msg = match *err.kind() {
-                jsonwebtoken::errors::ErrorKind::InvalidToken => {
-                    tracing::warn!("InvalidToken");
-                    "Invalid Token"
-                }
-                jsonwebtoken::errors::ErrorKind::InvalidSignature => {
-                    tracing::warn!("InvalidSignature");
-                    "Invalid Signature"
-                }
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
-                    tracing::warn!("ExpiredSignature");
-                    "Expiered Signature"
-                }
-                _ => {
-                    tracing::warn!("Something really bad happened");
-                    "Token Verifation fail"
-                }
-            };
-            return (axum::http::StatusCode::UNAUTHORIZED, Json(msg.to_string()));
-        }
-    };
-    (axum::http::StatusCode::OK, Json("Good Token!".to_string()))
-} */
