@@ -16,6 +16,7 @@ sqlx = { workspace = true, features = [
   "json",
   "time",
   "uuid"]}
+uuid.workspace = true
 dotenvy.workspace = true
 crypto_utils.workspace = true
 anyhow.workspace = true

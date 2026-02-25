@@ -1,7 +1,6 @@
 const puppeteer = require('puppeteer');
 
 (async () => {
-  let browser;
   try {
     const args = process.argv;
     const browser = await puppeteer.launch({

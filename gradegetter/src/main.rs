@@ -1,5 +1,9 @@
 use anyhow::{Context, Result};
-use axum::{Router, response::IntoResponse, routing::get};
+use axum::{
+    Router,
+    response::IntoResponse,
+    routing::{get, post},
+};
 use crypto_utils::{decrypt_string, encrypt_string};
 use serde_json::Value;
 use sqlx::{PgPool, postgres::PgPoolOptions};
@@ -204,18 +208,27 @@ async fn main() -> Result<(), anyhow::Error> {
     });
 
     let pool_axum = Arc::clone(&pool);
-    let app = Router::new().route("/", get(health)).route(
+    let app = Router::new()
+        .route("/", get(health))
+        /*        .route(
         "/userinit",
         get({
             let pool_axum = Arc::clone(&pool_axum);
-
             move || {
                 let pool = Arc::clone(&pool_axum);
-
                 async move { user_token_initalize(pool).await }
             }
-        }),
-    );
+        }),*/
+        .route(
+            "/userinit",
+            post({
+                let pool_axum = Arc::clone(&pool_axum);
+                move |uuid: String| {
+                    let pool = Arc::clone(&pool_axum);
+                    async move { user_token_initalize(pool, uuid).await }
+                }
+            }),
+        );
 
     let listener = TcpListener::bind("0.0.0.0:3001").await.unwrap();
     axum::serve(listener, app)
@@ -249,8 +262,14 @@ async fn health() -> impl IntoResponse {
     "Alive".to_string()
 }
 
-async fn user_token_initalize(pool: Arc<PgPool>) -> Result<String, axum::http::StatusCode> {
-    let user = sqlx::query!("SELECT id, encrypted_email, encrypted_password FROM schoology_auth WHERE session_token IS NULL")
+async fn user_token_initalize(
+    pool: Arc<PgPool>,
+    uuid: String,
+) -> Result<String, axum::http::StatusCode> {
+    let user = sqlx::query!(
+           "SELECT id, encrypted_email, encrypted_password FROM schoology_auth WHERE session_token IS NULL AND id = $1",
+            uuid::Uuid::parse_str(&uuid.as_str()).unwrap()
+        )
         .fetch_one(&*pool)
         .await
         .map_err(|err| {

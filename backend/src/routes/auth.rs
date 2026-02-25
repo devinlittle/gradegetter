@@ -192,10 +192,12 @@ pub async fn schoology_credentials_handler(
     ),
     tag = "user_auth"
 )]
-pub async fn foward_to_gradegetter() -> Result<(), StatusCode> {
+pub async fn foward_to_gradegetter(
+    Extension(user): Extension<AuthenticatedUser>,
+) -> Result<(), StatusCode> {
     let client = reqwest::Client::new();
-    let _ = client
-        .request(reqwest::Method::GET, "http://gradegetter:3001/userinit")
+    let _ = client.post("http://gradegetter:3001/userinit")
+        .body(user.uuid.to_string())
         .send()
         .await
         .map_err(|err| {
