@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, encrypted_email, encrypted_password FROM schoology_auth WHERE session_token IS NULL",
+  "query": "SELECT id, encrypted_email, encrypted_password FROM schoology_auth WHERE session_token IS NULL AND id = $1",
   "describe": {
     "columns": [
       {
@@ -20,7 +20,9 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -28,5 +30,5 @@
       false
     ]
   },
-  "hash": "34083864b0764808d03cb01398e83c9789422cbe5af163a904ba428f65fbdf1c"
+  "hash": "b2c5700480348cdc7eac8c878cb95153dfa5a91c4e4b368fc4d70f692b616cf7"
 }
