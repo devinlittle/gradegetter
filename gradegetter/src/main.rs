@@ -368,6 +368,7 @@ async fn fetch_grades(token: String) -> Result<Value, anyhow::Error> {
     let html = fetch_final_grades_export(
         forms.form_build_id.as_str(),
         forms.form_token.as_str(),
+        forms.class_ids,
         token,
     )
     .await
@@ -380,13 +381,14 @@ async fn fetch_grades(token: String) -> Result<Value, anyhow::Error> {
 }
 
 #[derive(Debug)]
-struct Forms {
+struct QuarterForms {
     form_build_id: String,
     form_token: String,
+    grading_periods: HashMap<String, String>,
 }
 
-// this function gets the form token and form id
-async fn fetch_export_form_tokens(token: String) -> Result<Forms, anyhow::Error> {
+// this function gets the form token, form build id, and quarter information
+async fn fetch_export_initial_form_data(token: String) -> Result<QuarterForms, anyhow::Error> {
     let mut form_build_id = "N/A".to_string();
     let mut form_token = "N/A".to_string();
 
@@ -409,9 +411,9 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, anyhow::Error>
         .context("fetch_export_form_tokens regex1 failed")?;
     if let Some(caps) = re_v1.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
-        debug!("fetch_export_form_tokens: form_build_id match found");
+        debug!("fetch_export_initial_form_data: form_build_id match found");
     } else {
-        debug!("fetch_export_form_tokens: form_build_id NO match found");
+        debug!("fetch_export_initial_form_data: form_build_id NO match found");
     }
 
     let re_v2 = regex::Regex::new(
@@ -419,24 +421,46 @@ async fn fetch_export_form_tokens(token: String) -> Result<Forms, anyhow::Error>
     ).context("fetch_export_form_tokens regex2 failed")?;
     if let Some(caps) = re_v2.captures(body.as_str()) {
         form_token = caps[1].to_string();
-        debug!("fetch_export_form_tokens: form token match found");
+        debug!("fetch_export_initial_form_data: form_build_id match found");
     } else {
-        debug!("fetch_export_form_tokens: form token NO match found");
+        debug!("fetch_export_initial_form_data: form_build_id NO match found");
     }
 
-    let output = Forms {
+    let mut grading_periods: HashMap<String, String> = HashMap::new();
+
+    let re_quater_id = regex::Regex::new(r#"<div class="indentation">[\s\S]*?value="(\d+)"#)
+        .context("Regex for fetching grading peiods failed failed")?;
+    let quater_ids: Vec<String> = re_quater_id
+        .captures_iter(&body)
+        .map(|c| c.extract::<1>().1[0].to_string())
+        .collect();
+
+    for id in &quater_ids[quater_ids.len() - 4..] {
+        trace!("quarter ids: {id}");
+        grading_periods.insert(format!("grading_period[{}]", id), id.to_string());
+    }
+
+    let output = QuarterForms {
         form_build_id,
         form_token,
+        grading_periods,
     };
 
-    debug!("fetch_export_form_tokens output: {:?}", output);
+    debug!("fetch_export_inital_form_data output: {:?}", output);
 
     Ok(output)
 }
 
-// This inputs the form build and form id from the last function (fetch_export_form_tokens)
+#[derive(Debug)]
+struct ClassForms {
+    form_build_id: String,
+    form_token: String,
+    class_ids: HashMap<String, String>,
+}
+
+// This inputs the form build, form id, and quarter values from last from the last function (fetch_export_initial_form_data)
 // and selects the grading period
-async fn select_grade_period(token: String) -> Result<Forms, anyhow::Error> {
+async fn select_grade_period(token: String) -> Result<ClassForms, anyhow::Error> {
     let client = reqwest::Client::builder().build()?;
 
     let mut headers = reqwest::header::HeaderMap::new();
@@ -464,22 +488,16 @@ async fn select_grade_period(token: String) -> Result<Forms, anyhow::Error> {
     headers.insert("sec-fetch-user", "?1".parse()?);
     headers.insert("upgrade-insecure-requests", "1".parse()?);
 
-    let mut params = std::collections::HashMap::new();
-    params.insert("grading_period[1113181]", "1113181"); // ! CHANGE THIS FOR THE GRADING PERIOD //
-    // Q1
-    params.insert("grading_period[1113182]", "1113182"); // ! CHANGE THIS FOR THE GRADING PERIOD 
-    // Q2
-    params.insert("grading_period[1113183]", "1113183"); // ! CHANGE THIS FOR THE GRADING PERIOD
-    // Q3
-    params.insert("grading_period[1113184]", "1113184"); // ! CHANGE THIS FOR THE GRADING PERIOD 
-    // Q4
-    params.insert("form_id", "s_grades_export_form");
-    params.insert("op", "Next");
-    let params_needed = fetch_export_form_tokens(token)
+    let params_needed = fetch_export_initial_form_data(token)
         .await
         .context("fetch_export_form_tokens failed")?;
-    params.insert("form_build_id", params_needed.form_build_id.as_str());
-    params.insert("form_token", params_needed.form_token.as_str());
+
+    let mut params = params_needed.grading_periods;
+
+    params.insert("form_id".to_string(), "s_grades_export_form".to_string());
+    params.insert("op".to_string(), "Next".to_string());
+    params.insert("form_build_id".to_string(), params_needed.form_build_id);
+    params.insert("form_token".to_string(), params_needed.form_token);
 
     let req = client
         .request(
@@ -513,9 +531,14 @@ async fn select_grade_period(token: String) -> Result<Forms, anyhow::Error> {
         debug!("select_grade_period: form token NO match found");
     }
 
-    let output = Forms {
+    let class_ids = fetch_class_ids(body)
+        .await
+        .context("fetch_class_ids failed: {}")?;
+
+    let output = ClassForms {
         form_build_id,
         form_token,
+        class_ids,
     };
 
     debug!("select_grade_period output: {:?}", output);
@@ -523,37 +546,28 @@ async fn select_grade_period(token: String) -> Result<Forms, anyhow::Error> {
     Ok(output)
 }
 
-async fn fetch_class_ids(token: &str) -> Result<HashMap<String, String>, anyhow::Error> {
-    let client = reqwest::Client::builder().build()?;
-
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert("Cookie", token.parse()?);
-
-    let req = client
-        .request(
-            reqwest::Method::GET,
-            "https://essexnorthshore.schoology.com/grades/grades",
-        )
-        .headers(headers);
-
-    let response = req.send().await?;
-    let body = response.text().await?;
-
+async fn fetch_class_ids(body: String) -> Result<HashMap<String, String>, anyhow::Error> {
     let mut hashmap: HashMap<String, String> = HashMap::new();
 
-    let re_class_id = regex::Regex::new(r#"id="s-js-gradebook-course-(\d+)"#)
+    let re_class_id = regex::Regex::new(r#"courses\[(\d+)\]\[selected\]"#)
         .context("Regex for fetch_class_ids failed")?;
-    for (_, [id]) in re_class_id.captures_iter(&body).map(|c| c.extract()) {
+    for (_, [id]) in re_class_id
+        .captures_iter(body.as_str())
+        .map(|c| c.extract())
+    {
         trace!("class ids: {id}");
         hashmap.insert(format!("courses[{}][selected]", id), "1".to_string());
     }
     Ok(hashmap)
 }
 
+type ClassIdsHashMap = HashMap<String, String>;
+
 // Selects classes and gets the final export, creates html file
 async fn fetch_final_grades_export(
     form_build_id: &str,
     form_token: &str,
+    class_ids_hashmap: ClassIdsHashMap,
     token: String,
 ) -> Result<String, anyhow::Error> {
     let client = reqwest::Client::builder().build()?;
@@ -583,9 +597,7 @@ async fn fetch_final_grades_export(
     headers.insert("sec-fetch-user", "?1".parse()?);
     headers.insert("upgrade-insecure-requests", "1".parse()?);
 
-    let mut params = fetch_class_ids(&token)
-        .await
-        .context("fetch_class_ids failed: {}")?;
+    let mut params = class_ids_hashmap;
 
     params.insert("form_id".to_string(), "s_grades_export_form".to_string());
     params.insert("form_build_id".to_string(), form_build_id.to_string());
