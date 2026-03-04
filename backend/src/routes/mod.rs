@@ -19,6 +19,7 @@ pub mod grades;
         crate::routes::auth::validate_token,
         crate::routes::auth::foward_to_gradegetter,
         crate::routes::auth::schoology_credentials_handler,
+        crate::routes::auth::health,
         // Grade path
         crate::routes::grades::grades_handler,
     ),
@@ -58,7 +59,8 @@ impl utoipa::Modify for JwtBearer {
 pub fn create_routes(pool: PgPool) -> Router {
     let routes_without_middleware = Router::new()
         .route("/auth/register", post(auth::register_handler))
-        .route("/auth/login", post(auth::login_handler));
+        .route("/auth/login", post(auth::login_handler))
+        .route("/health", get(auth::health));
 
     let routes_with_middleware = Router::new()
         // Auth Routes

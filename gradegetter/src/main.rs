@@ -1,7 +1,6 @@
 use anyhow::{Context, Result};
 use axum::{
     Router,
-    response::IntoResponse,
     routing::{get, post},
 };
 use crypto_utils::{decrypt_string, encrypt_string};
@@ -209,7 +208,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let pool_axum = Arc::clone(&pool);
     let app = Router::new()
-        .route("/", get(health))
+        .route("/health", get(health))
         /*        .route(
         "/userinit",
         get({
@@ -258,8 +257,8 @@ async fn shutdown_signal() {
     info!("Signal recvived now starting graceful shutdown");
 }
 
-async fn health() -> impl IntoResponse {
-    "Alive".to_string()
+async fn health() -> Result<(), axum::http::StatusCode> {
+    Ok(())
 }
 
 async fn user_token_initalize(

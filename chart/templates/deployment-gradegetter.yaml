@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gradegetter
+spec:
+  replicas: {{ .Values.gradegetter.replicaCount }}
+  selector:
+    matchLabels:
+      app: gradegetter
+  template:
+    metadata:
+      labels:
+        app: gradegetter
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret }}
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox
+          command:
+            - sh
+            - -c
+            - until nc -z {{ .Release.Name }}-postgresql 5432; do echo "waiting for postgres"; sleep 2; done
+      containers:
+        - name: gradegetter
+          image: "{{ .Values.gradegetter.image.repository }}:{{ .Values.gradegetter.image.tag }}"
+          imagePullPolicy: {{ .Values.gradegetter.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.gradegetter.port }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.gradegetter.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          env:
+            - name: RUST_LOG
+              value: {{ .Values.gradegetter.env.RUST_LOG }}
+            - name: PUPPETEER_EXECUTABLE_PATH
+              value: {{ .Values.gradegetter.env.PUPPETEER_EXECUTABLE_PATH }}
+            - name: DATABASE_URL
+              value: "postgres://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secretName }}
+                  key: ENCRYPTION_KEY

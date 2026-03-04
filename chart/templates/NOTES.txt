@@ -1,0 +1,10 @@
+GradeGetter deployed!!!
+
+Backend is available at: http://{{ .Values.ingress.host }}
+
+Before deploying make sure you've created your secrets:
+
+  kubectl create secret generic {{ .Values.secretName }} \
+    --from-literal=HASH_SECRET="..." \
+    --from-literal=JWT_SECRET="..." \
+    --from-literal=ENCRYPTION_KEY="$(openssl rand -base64 32)"

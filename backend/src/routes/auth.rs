@@ -258,3 +258,16 @@ pub async fn delete_handler(
         }
     }
 }
+
+#[utoipa::path(
+    get,
+    path = "/health",
+    responses(
+        (status = 200, description = "Service is alive"),
+    ),
+    tag = "none"
+)]
+
+pub async fn health() -> Result<(), axum::http::StatusCode> {
+    Ok(())
+}
