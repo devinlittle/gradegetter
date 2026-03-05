@@ -4,9 +4,15 @@ use axum::{
     routing::{get, post},
 };
 use crypto_utils::{decrypt_string, encrypt_string};
+use regex::Regex;
 use serde_json::Value;
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::{collections::HashMap, str, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    str,
+    sync::{Arc, LazyLock},
+    time::Duration,
+};
 use tokio::{
     net::TcpListener,
     process::Command,
@@ -379,6 +385,23 @@ async fn fetch_grades(token: String) -> Result<Value, anyhow::Error> {
     Ok(serde_json::to_value(grades)?)
 }
 
+static FORM_ID_RE: LazyLock<Regex> =
+    LazyLock::new(|| regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#).unwrap());
+
+static FORM_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"<input type="hidden" name="form_token" id="edit-s-grades-export-form-form-token-1" value="([^"]+)""#).unwrap()
+});
+
+// used specifically for the select_grade_period function due to its slightly differnt html
+static FORM_TOKEN_RE_GP: LazyLock<Regex> =
+    LazyLock::new(|| regex::Regex::new(r#"form-token" value="([^"]+)""#).unwrap());
+
+static GRADING_PEROID_RE: LazyLock<Regex> =
+    LazyLock::new(|| regex::Regex::new(r#"name="grading_period\[(\d+)\]""#).unwrap());
+
+static COURSE_ID_RE: LazyLock<Regex> =
+    LazyLock::new(|| regex::Regex::new(r#"courses\[(\d+)\]\[selected\]"#).unwrap());
+
 #[derive(Debug)]
 struct QuarterForms {
     form_build_id: String,
@@ -395,7 +418,6 @@ async fn fetch_export_initial_form_data(token: String) -> Result<QuarterForms, a
 
     let mut headers = reqwest::header::HeaderMap::new();
     headers.insert("Cookie", token.parse()?);
-
     let req = client
         .request(
             reqwest::Method::GET,
@@ -406,30 +428,23 @@ async fn fetch_export_initial_form_data(token: String) -> Result<QuarterForms, a
     let response = req.send().await?;
     let body = response.text().await?;
 
-    let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#)
-        .context("fetch_export_form_tokens regex1 failed")?;
-    if let Some(caps) = re_v1.captures(body.as_str()) {
+    if let Some(caps) = FORM_ID_RE.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
         debug!("fetch_export_initial_form_data: form_build_id match found");
     } else {
         debug!("fetch_export_initial_form_data: form_build_id NO match found");
     }
 
-    let re_v2 = regex::Regex::new(
-        r#"<input type="hidden" name="form_token" id="edit-s-grades-export-form-form-token-1" value="([^"]+)""#,
-    ).context("fetch_export_form_tokens regex2 failed")?;
-    if let Some(caps) = re_v2.captures(body.as_str()) {
+    if let Some(caps) = FORM_TOKEN_RE.captures(body.as_str()) {
         form_token = caps[1].to_string();
-        debug!("fetch_export_initial_form_data: form_build_id match found");
+        debug!("fetch_export_initial_form_data: form_token match found");
     } else {
-        debug!("fetch_export_initial_form_data: form_build_id NO match found");
+        debug!("fetch_export_initial_form_data: form_token NO match found");
     }
 
     let mut grading_periods: HashMap<String, String> = HashMap::new();
 
-    let re_quater_id = regex::Regex::new(r#"<div class="indentation">[\s\S]*?value="(\d+)"#)
-        .context("Regex for fetching grading peiods failed failed")?;
-    let quater_ids: Vec<String> = re_quater_id
+    let quater_ids: Vec<String> = GRADING_PEROID_RE
         .captures_iter(&body)
         .map(|c| c.extract::<1>().1[0].to_string())
         .collect();
@@ -512,22 +527,18 @@ async fn select_grade_period(token: String) -> Result<ClassForms, anyhow::Error>
     let mut form_build_id = "N/A".to_string();
     let mut form_token = "N/A".to_string();
 
-    let re_v1 = regex::Regex::new(r#"name="form_build_id" id="([^"]+)""#)
-        .context("select_grade_period regex1 failed")?;
-    if let Some(caps) = re_v1.captures(body.as_str()) {
+    if let Some(caps) = FORM_ID_RE.captures(body.as_str()) {
         form_build_id = caps[1].to_string();
         debug!("select_grade_period: form_build_id match found");
     } else {
         debug!("select_grade_period: form_build_id NO match found");
     }
 
-    let re_v2 = regex::Regex::new(r#"form-token" value="([^"]+)""#)
-        .context("select_grade_period regex2 failed")?;
-    if let Some(caps) = re_v2.captures(body.as_str()) {
+    if let Some(caps) = FORM_TOKEN_RE_GP.captures(body.as_str()) {
         form_token = caps[1].to_string();
-        debug!("select_grade_period: form token match found");
+        debug!("select_grade_period: form_token match found");
     } else {
-        debug!("select_grade_period: form token NO match found");
+        debug!("select_grade_period: form_token NO match found");
     }
 
     let class_ids = fetch_class_ids(body)
@@ -548,9 +559,7 @@ async fn select_grade_period(token: String) -> Result<ClassForms, anyhow::Error>
 async fn fetch_class_ids(body: String) -> Result<HashMap<String, String>, anyhow::Error> {
     let mut hashmap: HashMap<String, String> = HashMap::new();
 
-    let re_class_id = regex::Regex::new(r#"courses\[(\d+)\]\[selected\]"#)
-        .context("Regex for fetch_class_ids failed")?;
-    for (_, [id]) in re_class_id
+    for (_, [id]) in COURSE_ID_RE
         .captures_iter(body.as_str())
         .map(|c| c.extract())
     {
